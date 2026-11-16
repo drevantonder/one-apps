@@ -9,7 +9,7 @@
 #
 # ONE_APP is a checkout of The One App with its client built (`cargo build --release`). The machine needs Bun and
 # Playwright's Chromium. The sign-in window opens headless here, as nobody is at the screen: the fake is told the
-# person signed in. With SHOTS=<folder>, it takes pictures of the screen there too.
+# person signed in.
 source "${ONE_APP:?a checkout of The One App}/core/server/test/servers.sh"
 plugin=$(cd "$(dirname "$0")/.." && pwd)
 
@@ -88,18 +88,6 @@ stop a
 options="--name a" start a
 ask a messenger read --chat Family
 
-if [[ -n ${SHOTS:-} ]]; then
-  say "Pictures of its screen, on a phone and a desktop, light and dark, into $SHOTS"
-  cat >"$folder/steps.js" <<'STEPS'
-export default async ({ app, shot }) => {
-  const frame = await app("Messenger")
-  await frame.locator(".ui-row").first().waitFor({ timeout: 15000 })
-  await shot("messenger")
-}
-STEPS
-  mkdir -p "$SHOTS"
-  (cd "$ONE_APP/core/edge" && ONE_HOME=$folder/only-a bun "$ONE_APP/clients/app/test/window.js" "$SHOTS" "$folder/steps.js")
-fi
 
 say "The session is never on a disk or in the bucket unencrypted"
 echo "files of the network holding the keys the fake put in IndexedDB: $({ grep -r -a -l -F "made-up-keys" "$folder" --exclude=messenger.js || true; } | wc -l)"

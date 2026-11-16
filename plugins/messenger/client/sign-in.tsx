@@ -4,7 +4,7 @@
 import { createMemo, createSignal, Errored, For, Loading, refresh, Show } from "solid-js"
 import { render } from "@solidjs/web"
 import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, Problem, Screen, Section, Select, Skeleton, toast } from "ui"
-import "./app.css"
+import "./sign-in.css"
 
 /** A signed-in account, as `messenger_accounts` answers it. */
 interface Account {
@@ -117,7 +117,7 @@ function Messenger(props: { state: { accounts: Account[]; devices: string[] }; a
   )
 }
 
-function App() {
+function SignIn() {
   const state = createMemo(async () => {
     const [{ accounts }, { devices }] = await Promise.all([ask<{ accounts: Account[] }>("accounts"), ask<{ devices: string[] }>("devices")])
     return { accounts, devices }
@@ -134,4 +134,4 @@ function App() {
   )
 }
 
-render(() => <App />, document.body)
+render(() => <SignIn />, document.body)

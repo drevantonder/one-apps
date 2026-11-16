@@ -144,7 +144,7 @@ defmodule WhatsApp do
       },
       %{
         name: "sign_in",
-        ui: "client/index.html",
+        ui: "client/sign-in.html",
         description:
           "For the user: link a WhatsApp account to one of their devices, as WhatsApp Desktop is linked. Gives a QR code to scan on their phone (WhatsApp > Settings > Linked devices > Link a device) and, given phone, a code to type there instead (Link with phone number instead), for when the QR code shows on the phone itself. Chats arrive over the next few minutes.",
         inputs: %{

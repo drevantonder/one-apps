@@ -4,7 +4,7 @@
 import { createMemo, createSignal, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
 import { render } from "@solidjs/web"
 import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, List, Problem, Row, Screen, Section, Select, Skeleton, toast } from "ui"
-import "./app.css"
+import "./sign-in.css"
 
 /** A linked account, as `whatsapp_accounts` answers it. */
 interface Account {
@@ -152,7 +152,7 @@ function WhatsApp(props: { state: { accounts: Account[]; devices: string[] }; ag
   )
 }
 
-function App() {
+function SignIn() {
   const state = createMemo(async () => {
     const [{ accounts }, { devices }] = await Promise.all([ask<{ accounts: Account[] }>("accounts"), ask<{ devices: string[] }>("devices")])
     return { accounts, devices }
@@ -169,4 +169,4 @@ function App() {
   )
 }
 
-render(() => <App />, document.body)
+render(() => <SignIn />, document.body)

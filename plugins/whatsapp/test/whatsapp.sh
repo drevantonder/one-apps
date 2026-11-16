@@ -7,8 +7,7 @@
 #
 #     ONE_APP=~/the-one-app mise exec -C ~/the-one-app -- "$PWD/plugins/whatsapp/test/whatsapp.sh"
 #
-# ONE_APP is a checkout of The One App with its client built (`cargo build --release`). The machine needs Go. With
-# SHOTS=<folder>, it takes pictures of the screen there too.
+# ONE_APP is a checkout of The One App with its client built (`cargo build --release`). The machine needs Go.
 source "${ONE_APP:?a checkout of The One App}/core/server/test/servers.sh"
 plugin=$(cd "$(dirname "$0")/.." && pwd)
 
@@ -102,21 +101,6 @@ ask a whatsapp status
 echo "times a connected the link since it came back: $(tail -n +$((back + 1)) "$folder/a.log" | grep -c "connected as" || true)"
 ask b whatsapp read --chat Kim --limit 3
 
-if [[ -n ${SHOTS:-} ]]; then
-  say "Pictures of its screen, on a phone and a desktop, light and dark, into $SHOTS"
-  cat >"$folder/steps.js" <<'EOF'
-export default async ({ app, shot }) => {
-  const frame = await app("WhatsApp")
-  await frame.locator(".ui-row").first().waitFor({ timeout: 15000 })
-  await shot("whatsapp")
-  await frame.getByRole("button", { name: "Link Account" }).click()
-  await frame.locator("img.qr").waitFor({ timeout: 15000 })
-  await shot("whatsapp-linking")
-}
-EOF
-  mkdir -p "$SHOTS"
-  (cd "$ONE_APP/core/edge" && ONE_HOME=$folder/only-b bun "$ONE_APP/clients/app/test/window.js" "$SHOTS" "$folder/steps.js")
-fi
 
 say "The session is never on a disk or in the bucket unencrypted"
 python3 -I - "$folder" <<'EOF'
