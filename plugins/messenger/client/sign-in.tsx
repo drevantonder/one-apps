@@ -117,7 +117,7 @@ function Messenger(props: { state: { accounts: Account[]; devices: string[] }; a
   )
 }
 
-function SignIn() {
+function Page() {
   const state = createMemo(async () => {
     const [{ accounts }, { devices }] = await Promise.all([ask<{ accounts: Account[] }>("accounts"), ask<{ devices: string[] }>("devices")])
     return { accounts, devices }
@@ -134,4 +134,4 @@ function SignIn() {
   )
 }
 
-render(() => <SignIn />, document.body)
+render(() => <Page />, document.body)
