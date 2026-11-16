@@ -9,26 +9,52 @@ import opencodego from "./opencodego.svg"
 import "./app.css"
 
 // Each brand's own mark: a logo is inset on white, an icon is a whole tile already.
-const marks = { claude: { src: claude, inset: true }, codex: { src: codex, inset: true }, opencodego: { src: opencodego } }
+/** A window a plan is metered over: how much of it is used, when it resets, and whether the pace lasts to then. */
+interface Window {
+  used?: number | null
+  countdown?: string
+  will_last?: boolean
+}
 
-const on = (p) => (p.machines.length ? `on ${p.machines.join(", ")}` : "")
+/** A plan of one account, as `ai-usage_status` answers it. */
+interface Plan {
+  id: string
+  title: string
+  plan?: string
+  account?: string
+  machines: string[]
+  active?: boolean
+  disabled?: boolean
+  updated_ago: string
+  stale?: string
+  session?: Window
+  weekly?: Window
+  monthly?: Window
+  models?: (Window & { name: string })[]
+  extra?: { used: number; limit: number }
+  alarm?: { text: string; tone?: string }
+}
 
-function Meter(props) {
+const marks: Record<string, { src: string; inset?: boolean }> = { claude: { src: claude, inset: true }, codex: { src: codex, inset: true }, opencodego: { src: opencodego } }
+
+const on = (p: Plan) => (p.machines.length ? `on ${p.machines.join(", ")}` : "")
+
+function Meter(props: { label: string; window?: Window }) {
   return (
-    <Show when={props.window && props.window.used != null}>
+    <Show when={props.window && props.window!.used != null}>
       <div class="meter">
         <span class="label">{props.label}</span>
-        <div class={["bar", { full: props.window.used >= 100 || props.window.will_last === false }]} role="meter" aria-label={props.label} aria-valuenow={props.window.used} aria-valuemin="0" aria-valuemax="100">
-          <div style={{ width: `${Math.min(100, props.window.used)}%` }} />
+        <div class={["bar", { full: props.window!.used! >= 100 || props.window!.will_last === false }]} role="meter" aria-label={props.label} aria-valuenow={props.window!.used!} aria-valuemin="0" aria-valuemax="100">
+          <div style={{ width: `${Math.min(100, props.window!.used!)}%` }} />
         </div>
-        <span class="used">{Math.round(props.window.used)}%</span>
-        <span class="resets">{props.window.countdown ? `resets ${props.window.countdown}` : ""}</span>
+        <span class="used">{Math.round(props.window!.used!)}%</span>
+        <span class="resets">{props.window!.countdown ? `resets ${props.window!.countdown}` : ""}</span>
       </div>
     </Show>
   )
 }
 
-function Account(props) {
+function Account(props: { plan: Plan; several: boolean }) {
   const p = () => props.plan
   const [team, email] = (p().account || "").split(" · ")
   const state = () => (p().active && props.several ? "In use" : p().disabled ? "Not used" : "")
@@ -50,7 +76,7 @@ function Account(props) {
       <Show when={p().extra}>
         <div class="extra">
           <span>Extra</span>
-          <span>{`$${p().extra.used} of $${p().extra.limit}`}</span>
+          <span>{`$${p().extra!.used} of $${p().extra!.limit}`}</span>
         </div>
       </Show>
       <Show when={p().alarm}>{(alarm) => <Problem warn={alarm().tone === "warn"} heading={alarm().text} />}</Show>
@@ -58,7 +84,7 @@ function Account(props) {
   )
 }
 
-function Provider(props) {
+function Provider(props: { plans: Plan[] }) {
   const p = () => props.plans[0]
   const mark = () => marks[p().id]
   const sub = () => [p().plan, p().account ? "" : on(p()), `updated ${p().updated_ago}`].filter(Boolean).join(" · ")
@@ -82,7 +108,7 @@ function Provider(props) {
   )
 }
 
-function Plans(props) {
+function Plans(props: { usage: { providers: Plan[]; problem?: string } }) {
   const ids = () => [...new Set(props.usage.providers.map((p) => p.id))]
   return (
     <Show when={!props.usage.problem} fallback={<Problem heading="Can't read your AI plans" text={props.usage.problem} />}>
@@ -100,7 +126,7 @@ function App() {
   changed(() => refresh(usage))
   return (
     <Screen heading="AI Usage" back onBack={leave}>
-      <Errored fallback={(error, reset) => <Problem heading="Couldn't read your AI plans" text={error().message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
+      <Errored fallback={(error, reset) => <Problem heading="Couldn't read your AI plans" text={(error() as Error).message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
         <Loading fallback={<Skeleton rows={4} />}>
           <Plans usage={usage()} />
         </Loading>
