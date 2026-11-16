@@ -76,8 +76,8 @@ defmodule AIUsage do
     database = OneCore.Call.plugin(call, "database")
     transaction = fn fun -> database.transaction(call, @schema, &fun.({database, &1})) end
 
-    kept = transaction.(fn db -> Map.new(ids, &{&1, latest(db, &1)}) end)
-    stale = Enum.filter(ids, fn id -> Enum.all?(kept[id], &(now - &1["at"] >= @fresh)) end)
+    stored = transaction.(fn db -> Map.new(ids, &{&1, latest(db, &1)}) end)
+    stale = Enum.filter(ids, fn id -> Enum.all?(stored[id], &(now - &1["at"] >= @fresh)) end)
     asked = if stale != [], do: ask(call, inputs["device"])
 
     all =
@@ -85,7 +85,7 @@ defmodule AIUsage do
         query(db, "delete from readings where at < ?", [now - @keep])
 
         Enum.flat_map(ids, fn id ->
-          if id in stale, do: merge(db, id, kept[id], asked, now), else: Enum.map(kept[id], &Map.put(&1, "now", now))
+          if id in stale, do: merge(db, id, stored[id], asked, now), else: Enum.map(stored[id], &Map.put(&1, "now", now))
         end)
       end)
 
@@ -157,10 +157,10 @@ defmodule AIUsage do
   # One provider's readings: the newest per account, from whichever machine read it, kept with the pace. Accounts
   # that every machine that answered no longer has are let go; those a machine couldn't read now keep their last
   # reading, with why in its note.
-  defp merge(_db, _id, kept, %{problem: problem}, now),
-    do: Enum.map(kept, &Map.merge(&1, %{"note" => "Couldn't update: #{problem}", "now" => now}))
+  defp merge(_db, _id, stored, %{problem: problem}, now),
+    do: Enum.map(stored, &Map.merge(&1, %{"note" => "Couldn't update: #{problem}", "now" => now}))
 
-  defp merge(db, id, kept, %{answers: answers}, now) do
+  defp merge(db, id, stored, %{answers: answers}, now) do
     failed =
       for {machine, %{"error" => why}} <- answers, into: %{}, do: {machine, "#{machine}: #{String.slice(why, 0, 160)}"}
 
@@ -252,7 +252,7 @@ defmodule AIUsage do
       &(Map.has_key?(answers, &1["machine"]) and not Map.has_key?(failed, &1["machine"]) and
           not Map.has_key?(unread, &1["account"]))
 
-    for r <- kept,
+    for r <- stored,
         not MapSet.member?(seen, r["account"]),
         gone?.(r),
         do: query(db, "delete from readings where provider = ? and account = ?", [id, r["account"]])
@@ -261,7 +261,7 @@ defmodule AIUsage do
     in_use = Enum.any?(results, & &1["active"])
 
     left =
-      for r <- kept, not MapSet.member?(seen, r["account"]), not gone?.(r) do
+      for r <- stored, not MapSet.member?(seen, r["account"]), not gone?.(r) do
         why = unread[r["account"]] || failed[r["machine"]]
         r = Map.put(r, "now", now)
 

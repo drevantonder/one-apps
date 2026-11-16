@@ -2,7 +2,7 @@ defmodule WhatsApp.Link do
   @moduledoc """
   Holds WhatsApp links on its machine: each is the program `server/bridge/`, built here with Go, linked to one account
   as WhatsApp Desktop is linked, and run for whoever linked it. The program keeps the link's session in memory only;
-  what it sends out is handed to the plugin, which keeps it encrypted (`WhatsApp.kept/4`), and a link started again,
+  what it sends out is handed to the plugin, which keeps it encrypted (`WhatsApp.store_session/4`), and a link started again,
   here or on another machine, carries on from it. What the program hears, messages and chats, goes to the plugin's
   database as it comes (`WhatsApp.heard/3`), so reading needs no machine but a server.
 
@@ -266,7 +266,7 @@ defmodule WhatsApp.Link do
   end
 
   defp keep(link, data) do
-    OneCore.Service.plugin(self(), link.who, :kept, [link.account, OneCore.Service.server(), data])
+    OneCore.Service.plugin(self(), link.who, :store_session, [link.account, OneCore.Service.server(), data])
   rescue
     error -> Logger.warning("WhatsApp: +#{link.account}'s session wasn't kept: #{Exception.message(error)}")
   end

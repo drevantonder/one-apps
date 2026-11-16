@@ -222,7 +222,7 @@ defmodule Messenger do
 
   @doc false
   # Keeps an account's session, encrypted under its key in the Vault. Signing in makes the account, with a new key.
-  def kept(call, account, data, signed_in) do
+  def store_session(call, account, data, signed_in) do
     vault = OneCore.Call.plugin(call, "vault")
 
     key =

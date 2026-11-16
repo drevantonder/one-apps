@@ -3,7 +3,7 @@ defmodule Messenger.Browser do
   Holds Messenger's browser on its machine: the program `server/browser/`, run with Bun, which reads and sends in
   messenger.com through Playwright. An account's browser opens from its session, which the plugin keeps encrypted
   (`Messenger.session/2`) and hands over the first time an account is asked for; what the program sends back as
-  that session changes, and once someone signs in, goes back to the plugin (`Messenger.kept/4`). Any machine
+  that session changes, and once someone signs in, goes back to the plugin (`Messenger.store_session/4`). Any machine
   that runs this can read any of its person's accounts.
   """
   use GenServer
@@ -124,7 +124,7 @@ defmodule Messenger.Browser do
   defp handle_event(state, %{"event" => "not_signed_in"}), do: state
 
   defp keep(state, account, data, signed_in) do
-    OneCore.Service.plugin(self(), state.whos[account], :kept, [account, data, signed_in])
+    OneCore.Service.plugin(self(), state.whos[account], :store_session, [account, data, signed_in])
   rescue
     error -> Logger.warning("Messenger: #{account}'s session wasn't kept: #{Exception.message(error)}")
   end

@@ -237,11 +237,11 @@ defmodule WhatsApp do
       Enum.map_join(links, "\n", fn link ->
         device = OneCore.Service.name(link["server"]) || "a device"
         count = counts[link["account"]] || %{"messages" => 0, "chats" => 0}
-        kept = "#{count["messages"]} messages in #{count["chats"]} chats are kept."
+        stored = "#{count["messages"]} messages in #{count["chats"]} chats are kept."
 
         case how(link, live, device) do
-          %{connected: true} -> "+#{link["account"]} is linked on #{device}, and connected. #{kept}"
-          %{why: why} -> "+#{link["account"]}: #{why}. #{kept}"
+          %{connected: true} -> "+#{link["account"]} is linked on #{device}, and connected. #{stored}"
+          %{why: why} -> "+#{link["account"]}: #{why}. #{stored}"
         end
       end)
     end
@@ -440,7 +440,7 @@ defmodule WhatsApp do
   @doc false
   # Keeps a link's session, as its program sent it out, encrypted under its key in the Vault: a link that's new
   # gets its key and its row of `links` here.
-  def kept(call, account, server, data) do
+  def store_session(call, account, server, data) do
     vault = vault(call)
 
     live =

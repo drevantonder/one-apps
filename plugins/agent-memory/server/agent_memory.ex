@@ -205,7 +205,7 @@ defmodule AgentMemory do
         {:error, {why, _at}} -> raise "bad regex: #{why}"
       end
 
-    {hits, kept, _size} =
+    {hits, tail, _size} =
       Stream.iterate(0, &(&1 + 4096))
       |> Stream.map(&slice(m, &1, &1 + 4096))
       |> Stream.transform(:going, fn
@@ -214,21 +214,21 @@ defmodule AgentMemory do
       end)
       |> Stream.map(&entry/1)
       |> Stream.filter(&Regex.match?(pattern, &1))
-      |> Enum.reduce({0, :queue.new(), 0}, fn line, {hits, kept, size} ->
-        fit(hits + 1, :queue.in(line, kept), size + byte_size(line) + 1)
+      |> Enum.reduce({0, :queue.new(), 0}, fn line, {hits, tail, size} ->
+        fit(hits + 1, :queue.in(line, tail), size + byte_size(line) + 1)
       end)
 
-    kept = :queue.to_list(kept)
+    tail = :queue.to_list(tail)
 
     cond do
       hits == 0 ->
         "No match."
 
-      length(kept) < hits ->
-        Enum.join(kept ++ ["Newest #{length(kept)} of #{plural(hits, "match")}. Narrow the regex."], "\n")
+      length(tail) < hits ->
+        Enum.join(tail ++ ["Newest #{length(tail)} of #{plural(hits, "match")}. Narrow the regex."], "\n")
 
       true ->
-        Enum.join(kept ++ ["#{plural(hits, "match")}."], "\n")
+        Enum.join(tail ++ ["#{plural(hits, "match")}."], "\n")
     end
   end
 
@@ -337,11 +337,11 @@ defmodule AgentMemory do
   end
 
   # Drops the oldest matches kept until what's kept fits a part.
-  defp fit(hits, kept, size) when size <= @part_bytes, do: {hits, kept, size}
+  defp fit(hits, tail, size) when size <= @part_bytes, do: {hits, tail, size}
 
-  defp fit(hits, kept, size) do
-    {{:value, oldest}, kept} = :queue.out(kept)
-    fit(hits, kept, size - byte_size(oldest) - 1)
+  defp fit(hits, tail, size) do
+    {{:value, oldest}, tail} = :queue.out(tail)
+    fit(hits, tail, size - byte_size(oldest) - 1)
   end
 
   defp after_nap(nil), do: ""
