@@ -1,6 +1,9 @@
 ---
 name: imessage
 description: Read when the user asks about their iMessages or texts, or wants one sent, through their Mac.
+metadata:
+  subtitle: "Your Mac's texts"
+  about: "Your AI reads and searches your iMessages and texts, and sends one when you ask, through your Mac."
 ---
 
 iMessage is the user's Messages on their Mac, iMessage and SMS. `chats` lists recent chats; `read` reads one,

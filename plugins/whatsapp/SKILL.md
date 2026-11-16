@@ -1,6 +1,9 @@
 ---
 name: whatsapp
 description: Read before reading, searching or sending the user's WhatsApp messages, or linking a WhatsApp account.
+metadata:
+  subtitle: "Your WhatsApp chats"
+  about: "Your AI reads and searches your WhatsApp chats, and sends a message when you ask. Link your phone to one of your devices, as you would WhatsApp Desktop."
 ---
 
 WhatsApp is the user's WhatsApp accounts, each a phone linked as WhatsApp Desktop is linked, held on one of their

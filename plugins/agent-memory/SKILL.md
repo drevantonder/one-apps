@@ -1,6 +1,9 @@
 ---
 name: agent-memory
 description: Read at the start of every session, then run agent-memory_wake. Your memory is shared by every agent in this network, and this says when to note what you learn.
+metadata:
+  subtitle: "One memory for all your AI"
+  about: "Your AI remembers who you are, what you decided and what it tried, across every session, device and AI tool you use."
 ---
 
 ## Memory

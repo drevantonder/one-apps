@@ -1,6 +1,9 @@
 ---
 name: apple-calendar
 description: Read when the user asks about their Apple Calendar or what's on, or to add, move or delete an event, through their Mac.
+metadata:
+  subtitle: "Your Mac's calendar"
+  about: "Your AI sees what's on in Apple Calendar, and adds, moves or deletes events, through your Mac."
 ---
 
 Calendar is the user's Apple Calendar through their Mac: every account it has, such as iCloud, Google or Exchange.

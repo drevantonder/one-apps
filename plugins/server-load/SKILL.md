@@ -1,6 +1,9 @@
 ---
 name: server-load
 description: Read when the user asks how busy their devices are, or before giving a device heavy work, to pick one with room for a desktop, a model or a build.
+metadata:
+  subtitle: "How busy your devices are"
+  about: "See each device's memory, CPU, GPU and disk at a glance, with a widget for your Home Screen. Your AI uses it to pick a device with room for heavy work."
 ---
 
 Server Load says how busy each device is; people see it as the app Device Activity and its widget. `now` lists
