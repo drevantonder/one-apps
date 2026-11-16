@@ -2,6 +2,13 @@ defmodule IMessage do
   @moduledoc "iMessage: the user's Messages on their Mac, iMessage and SMS, through its service there, `IMessage.Helper`."
   @behaviour OneCore.Plugin
 
+  # It has no app, so it says how it's called and drawn where it's shown, as the App Store.
+  @impl true
+  def title, do: "iMessage"
+
+  @impl true
+  def icon, do: "icon.png"
+
   @chat "the chat: its name as imessage_chats gives it, a part of the name only one chat has, or its id; or a phone number with its country code (+61 400 000 000) or an email address"
   @since %{
     type: "string",

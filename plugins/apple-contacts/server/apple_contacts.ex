@@ -2,6 +2,13 @@ defmodule AppleContacts do
   @moduledoc "Apple Contacts: the user's Apple Contacts on their Mac, through its service there, `AppleContacts.Helper`."
   @behaviour OneCore.Plugin
 
+  # It has no app, so it says how it's called and drawn where it's shown, as the App Store.
+  @impl true
+  def title, do: "Contacts"
+
+  @impl true
+  def icon, do: "icon.png"
+
   @card "{ id, name, nickname, organization, job, phones, emails, addresses, birthday, urls }, each only when the card has it; name is the organization's when the card has no name, phones, emails and addresses are each { label, number } or { label, address }, and birthday is year-month-day, or month-day when the card has no year"
 
   @impl true

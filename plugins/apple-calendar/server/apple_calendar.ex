@@ -2,6 +2,13 @@ defmodule AppleCalendar do
   @moduledoc "Apple Calendar: the user's Apple Calendar on their Mac, through its service there, `AppleCalendar.Helper`."
   @behaviour OneCore.Plugin
 
+  # It has no app, so it says how it's called and drawn where it's shown, as the App Store.
+  @impl true
+  def title, do: "Calendar"
+
+  @impl true
+  def icon, do: "icon.png"
+
   @time "an ISO 8601 date (2026-11-01) or date-time (2026-11-01T09:00); without an offset, in the Mac's time zone"
   @id %{
     type: "string",

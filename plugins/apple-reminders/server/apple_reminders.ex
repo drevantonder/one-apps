@@ -2,6 +2,13 @@ defmodule AppleReminders do
   @moduledoc "Apple Reminders: the user's Apple Reminders on their Mac, through its service there, `AppleReminders.Helper`."
   @behaviour OneCore.Plugin
 
+  # It has no app, so it says how it's called and drawn where it's shown, as the App Store.
+  @impl true
+  def title, do: "Reminders"
+
+  @impl true
+  def icon, do: "icon.png"
+
   @id %{type: "string", description: "the reminder's id, as apple-reminders_list gives it"}
   @priority %{type: "string", enum: ["high", "medium", "low", "none"], description: "high, medium, low or none"}
   @reminder "{ id, title, list, due, priority, notes, completed }, due a date or, with a time, an ISO 8601 date-time in the Mac's time zone, and completed when it was done"
