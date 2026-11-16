@@ -1,7 +1,7 @@
 defmodule DeviceActivity do
   @moduledoc """
-  Device Activity: how busy each device is, as `load` measures it. Load's meter, its service `Load.Meter`, is what
-  measures each device it's installed on; this plugin says it in words, and shows it.
+  Device Activity: how busy each device is, as `server-load` measures it. Server Load's meter, its service
+  `ServerLoad.Meter`, is what measures each device it's installed on; this plugin says it in words, and shows it.
   """
   @behaviour OneCore.Plugin
 
@@ -9,7 +9,7 @@ defmodule DeviceActivity do
   @gib 1_073_741_824
 
   @impl true
-  def uses, do: ["load"]
+  def uses, do: ["server-load"]
 
   @impl true
   def apps, do: [%{name: "Device Activity", page: "client/index.html", icon: "client/icon.svg"}]
@@ -30,7 +30,7 @@ defmodule DeviceActivity do
         name: "list",
         read_only: true,
         description:
-          ~s[Every one of your devices that Load measures, on or not, and how busy each is now: memory, CPU, GPU and disk space, like "23 GB of 30 GB (76%)". Containers a device hosts follow it, with host naming it. Use it to pick a device with room for a desktop, a model or a build.],
+          ~s[Every one of your devices that Server Load measures, on or not, and how busy each is now: memory, CPU, GPU and disk space, like "23 GB of 30 GB (76%)". Containers a device hosts follow it, with host naming it. Use it to pick a device with room for a desktop, a model or a build.],
         inputs: %{
           type: "object",
           properties: %{
@@ -58,10 +58,10 @@ defmodule DeviceActivity do
     if inputs["format"] == "json", do: devices, else: %{devices: Enum.flat_map(devices, &said(&1, inputs["history"]))}
   end
 
-  # Every device Load measures: what its meter says now, or for one that's off, when it was last seen. One that's
+  # Every device Server Load measures: what its meter says now, or for one that's off, when it was last seen. One that's
   # known to be off isn't asked. Where nothing keeps who's on, as with no address, every one is.
   defp devices(call) do
-    load = OneCore.Call.plugin(call, "load")
+    load = OneCore.Call.plugin(call, "server-load")
     servers = OneCore.Service.servers(call, Module.concat(load, "Meter"))
     {off, on} = Enum.split_with(servers, &is_integer(OneCore.Service.seen(&1)))
 

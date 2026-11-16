@@ -22,7 +22,7 @@ enum ContactsPart {
             do {
                 return json(try store.unifiedContact(withIdentifier: id, keysToFetch: keys))
             } catch {
-                throw Refusal("no contact with id \(id); contacts_search finds them")
+                throw Refusal("no contact with id \(id); apple-contacts_search finds them")
             }
         case "me":
             do {

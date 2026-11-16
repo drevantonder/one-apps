@@ -80,7 +80,7 @@ enum CalendarPart {
                 return e
             }
         }
-        guard let e = store.event(withIdentifier: id) else { throw Refusal("no event with id \(id); calendar_events lists them") }
+        guard let e = store.event(withIdentifier: id) else { throw Refusal("no event with id \(id); apple-calendar_events lists them") }
         return e
     }
 
@@ -163,7 +163,7 @@ enum RemindersPart {
 
     private static func reminder(_ store: EKEventStore, _ input: Input) throws -> EKReminder {
         let id = try input.text("id")
-        guard let r = store.calendarItem(withIdentifier: id) as? EKReminder else { throw Refusal("no reminder with id \(id); reminders_list lists them") }
+        guard let r = store.calendarItem(withIdentifier: id) as? EKReminder else { throw Refusal("no reminder with id \(id); apple-reminders_list lists them") }
         return r
     }
 

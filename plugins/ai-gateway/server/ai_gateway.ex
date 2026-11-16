@@ -166,7 +166,7 @@ defmodule AiGateway do
       else: "#{whose} #{job} tries #{Enum.join(Enum.uniq(models), ", then ")}."
   end
 
-  # Each model asked is a span of the call, as OpenTelemetry's conventions for AI name it: Insights shows how long
+  # Each model asked is a span of the call, as OpenTelemetry's conventions for AI name it: Telemetry shows how long
   # each took, and what each used.
   defp asked(call, id, body, json?) do
     began = System.monotonic_time(:microsecond)
@@ -178,11 +178,11 @@ defmodule AiGateway do
     asked
   end
 
-  # What Insights keeps, where it's added: names, sizes and outcomes, never what was asked or answered.
+  # What Telemetry keeps, where it's added: names, sizes and outcomes, never what was asked or answered.
   defp record(call, records) do
-    if Enum.any?(Call.plugins(call), &(&1.name == "insights")),
+    if Enum.any?(Call.plugins(call), &(&1.name == "telemetry")),
       do:
-        Call.tool(call, "insights", "record", %{
+        Call.tool(call, "telemetry", "record", %{
           "records" => Enum.map(records, &Map.reject(&1, fn {_, v} -> v == nil end))
         })
   end
@@ -273,7 +273,7 @@ defmodule AiGateway do
   end
 
   # What a model said it used: its tokens in and out, and what it cost where the endpoint says, as OpenRouter's
-  # does. Insights reads them as AI Gateway's spending.
+  # does. Telemetry reads them as AI Gateway's spending.
   defp used(call, id, %{} = usage) do
     model = %{"gen_ai.request.model" => id}
 

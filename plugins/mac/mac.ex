@@ -1,7 +1,7 @@
 defmodule Mac do
   @moduledoc """
   What of a Mac its person's apps and agents reach: Calendar, Reminders, Contacts and Messages. The plugins
-  `calendar`, `reminders`, `contacts` and `imessage` each use this one for their part of it, through `ask/4`.
+  `apple-calendar`, `apple-reminders`, `apple-contacts` and `imessage` each use this one for their part of it, through `ask/4`.
 
   Its service, `Mac.Helper`, on the Mac it's installed on, builds and runs a small app of its own, The One App
   Helper, which reaches each through the frameworks macOS gives for it. macOS asks the Mac's person for each
