@@ -34,7 +34,7 @@ defmodule AgentsMd.Writer do
   @impl GenServer
   def init(_) do
     send(self(), :write)
-    {:ok, %{told: MapSet.new()}}
+    {:ok, %{logged: MapSet.new()}}
   end
 
   @impl GenServer
@@ -52,7 +52,7 @@ defmodule AgentsMd.Writer do
       [who | _] -> write_all(OneCore.Service.plugin(self(), who, :files), state)
     end
   rescue
-    problem -> tell(state, "couldn't write them: " <> Exception.message(problem))
+    problem -> log_once(state, "couldn't write them: " <> Exception.message(problem))
   end
 
   defp write_all(%{"text" => text, "skills" => skills, "revisions" => revisions}, state) do
@@ -95,7 +95,7 @@ defmodule AgentsMd.Writer do
   end
 
   # An edit on the device is its person's to make, as the comment at its top says: not a problem.
-  defp edited(file, state), do: tell(state, "left #{file} alone: it was edited on this device", :info)
+  defp edited(file, state), do: log_once(state, "left #{file} alone: it was edited on this device", :info)
 
   # What a text says under the comment it starts with, if it starts with one, to its last line: the comment is this
   # service's, and has said different things as the plugin changed.
@@ -126,13 +126,13 @@ defmodule AgentsMd.Writer do
 
     cond do
       File.exists?(folder) and not ours and not File.regular?(Path.join(folder, @built_in)) ->
-        tell(state, "left #{folder} alone: it isn't a skill AGENTS.md keeps")
+        log_once(state, "left #{folder} alone: it isn't a skill AGENTS.md keeps")
 
       same ->
         state
 
       path = Enum.find(Map.keys(files), &AgentsMd.outside?/1) ->
-        tell(state, "left #{folder} alone: #{path} isn't a path inside the skill")
+        log_once(state, "left #{folder} alone: #{path} isn't a path inside the skill")
 
       true ->
         writing = folder <> ".writing"
@@ -155,8 +155,8 @@ defmodule AgentsMd.Writer do
   end
 
   # Says each problem once, not every minute.
-  defp tell(state, said, level \\ :warning) do
-    if not MapSet.member?(state.told, said), do: Logger.log(level, "AGENTS.md: " <> said)
-    %{state | told: MapSet.put(state.told, said)}
+  defp log_once(state, said, level \\ :warning) do
+    if not MapSet.member?(state.logged, said), do: Logger.log(level, "AGENTS.md: " <> said)
+    %{state | logged: MapSet.put(state.logged, said)}
   end
 end

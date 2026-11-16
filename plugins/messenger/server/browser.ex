@@ -88,14 +88,14 @@ defmodule Messenger.Browser do
 
   def handle_info({port, {:data, {:eol, part}}}, %{port: port} = state) do
     line = state.buffer <> part
-    {:noreply, heard(%{state | buffer: ""}, JSON.decode!(line))}
+    {:noreply, handle_event(%{state | buffer: ""}, JSON.decode!(line))}
   end
 
   # The program stopped by itself, so the service does too, and its server starts both again.
   def handle_info({port, {:exit_status, status}}, %{port: port}),
     do: raise("Messenger's browser stopped, with status #{status}")
 
-  defp heard(state, %{"id" => id} = answer) do
+  defp handle_event(state, %{"id" => id} = answer) do
     {{from, account, effect}, waiting} = Map.pop(state.waiting, id)
     GenServer.reply(from, Map.take(answer, ["ok", "error", "code"]))
 
@@ -110,18 +110,18 @@ defmodule Messenger.Browser do
     %{state | waiting: waiting, open: open}
   end
 
-  defp heard(state, %{"event" => "session", "account" => account, "data" => data}) do
+  defp handle_event(state, %{"event" => "session", "account" => account, "data" => data}) do
     keep(state, account, data, false)
     %{state | open: MapSet.delete(state.open, account)}
   end
 
-  defp heard(state, %{"event" => "signed_in", "account" => account, "data" => data}) do
+  defp handle_event(state, %{"event" => "signed_in", "account" => account, "data" => data}) do
     keep(state, account, data, true)
     Logger.info("Messenger: #{account} is signed in")
     %{state | open: MapSet.delete(state.open, account)}
   end
 
-  defp heard(state, %{"event" => "not_signed_in"}), do: state
+  defp handle_event(state, %{"event" => "not_signed_in"}), do: state
 
   defp keep(state, account, data, signed_in) do
     OneCore.Service.plugin(self(), state.whos[account], :kept, [account, data, signed_in])

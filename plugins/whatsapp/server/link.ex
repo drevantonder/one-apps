@@ -108,7 +108,7 @@ defmodule WhatsApp.Link do
   def handle_info({port, {:data, {:eol, part}}}, state) do
     line = state.ports[port].buffer <> part
     state = put_in(state.ports[port].buffer, "")
-    {:noreply, heard(state, port, JSON.decode!(line))}
+    {:noreply, handle_event(state, port, JSON.decode!(line))}
   end
 
   # A program that stopped by itself stops the service too, and its server starts the service again, which
@@ -204,7 +204,7 @@ defmodule WhatsApp.Link do
   defp reply(from, answer), do: GenServer.reply(from, answer)
 
   # What the program says: an answer to what it was asked, or something it heard.
-  defp heard(state, port, %{"id" => id} = answer) do
+  defp handle_event(state, port, %{"id" => id} = answer) do
     {from, state} = pop_in(state.ports[port].waiting[id])
     said = if Map.has_key?(answer, "error"), do: {:error, answer["error"]}, else: {:ok, answer["ok"]}
 
@@ -221,41 +221,41 @@ defmodule WhatsApp.Link do
     end
   end
 
-  defp heard(state, port, %{"event" => "qr"} = qr), do: shows(state, port, qr)
+  defp handle_event(state, port, %{"event" => "qr"} = qr), do: shows(state, port, qr)
 
-  defp heard(state, port, %{"event" => "unpaired", "why" => why}) do
+  defp handle_event(state, port, %{"event" => "unpaired", "why" => why}) do
     state = put_in(state.ports[port].why, why)
     put_in(state.ports[port].qr, nil)
   end
 
-  defp heard(state, port, %{"event" => "paired", "account" => account}) do
+  defp handle_event(state, port, %{"event" => "paired", "account" => account}) do
     Logger.info("WhatsApp: linked +#{account} here")
     state = put_in(state.ports[port].account, account)
     state = %{state | pairing: nil}
     put_in(state.accounts[account], port)
   end
 
-  defp heard(state, port, %{"event" => "session", "data" => data}) do
+  defp handle_event(state, port, %{"event" => "session", "data" => data}) do
     keep(state.ports[port], data)
     state
   end
 
-  defp heard(state, port, %{"event" => event}) when event in ["connected", "disconnected"] do
+  defp handle_event(state, port, %{"event" => event}) when event in ["connected", "disconnected"] do
     put_in(state.ports[port].connected, event == "connected")
   end
 
   # The phone, or WhatsApp, unlinked it, or another copy of it connected somewhere else: it stops here, and the
   # plugin keeps which, for the person to see.
-  defp heard(state, port, %{"event" => event}) when event in ["unlinked", "replaced"] do
+  defp handle_event(state, port, %{"event" => event}) when event in ["unlinked", "replaced"] do
     link = state.ports[port]
     Logger.warning("WhatsApp: +#{link.account} was #{event}")
     if link.account, do: OneCore.Service.plugin(self(), link.who, :ended, [link.account, event])
     close(state, port)
   end
 
-  defp heard(state, port, event) do
+  defp handle_event(state, port, event) do
     link = state.ports[port]
-    if link.account, do: OneCore.Service.plugin(self(), link.who, :heard, [link.account, event])
+    if link.account, do: OneCore.Service.plugin(self(), link.who, :handle_event, [link.account, event])
     state
   end
 

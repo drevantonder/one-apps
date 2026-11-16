@@ -483,8 +483,8 @@ defmodule WhatsApp do
 
   @doc false
   # What a link heard: messages, chats, names, reads and edits, kept as rows.
-  def heard(call, account, event) do
-    transaction(call, &hear(&1, account, event))
+  def handle_event(call, account, event) do
+    transaction(call, &store_event(&1, account, event))
     :ok
   end
 
@@ -506,7 +506,7 @@ defmodule WhatsApp do
     end)
   end
 
-  defp hear(db, account, %{"event" => "messages", "messages" => messages}) do
+  defp store_event(db, account, %{"event" => "messages", "messages" => messages}) do
     for m <- messages, inserted?(db, account, m) do
       unread = if m["from_me"], do: "0", else: "unread + 1"
 
@@ -518,7 +518,7 @@ defmodule WhatsApp do
     end
   end
 
-  defp hear(db, account, %{"event" => "history", "chats" => chats, "messages" => messages}) do
+  defp store_event(db, account, %{"event" => "history", "chats" => chats, "messages" => messages}) do
     for c <- chats || [] do
       query(
         db,
@@ -530,13 +530,13 @@ defmodule WhatsApp do
     for m <- messages || [], do: inserted?(db, account, m)
   end
 
-  defp hear(db, account, %{"event" => "unread", "jid" => jid, "unread" => unread}),
+  defp store_event(db, account, %{"event" => "unread", "jid" => jid, "unread" => unread}),
     do: query(db, "update chats set unread = ? where account = ? and jid = ?", [unread, account, jid])
 
-  defp hear(db, account, %{"event" => "edit", "chat" => chat, "id" => id, "text" => text}),
+  defp store_event(db, account, %{"event" => "edit", "chat" => chat, "id" => id, "text" => text}),
     do: query(db, "update messages set text = ? where account = ? and chat = ? and id = ?", [text, account, chat, id])
 
-  defp hear(db, account, %{"event" => "name", "jid" => jid, "name" => name}),
+  defp store_event(db, account, %{"event" => "name", "jid" => jid, "name" => name}),
     do:
       query(
         db,
@@ -544,7 +544,7 @@ defmodule WhatsApp do
         [account, jid, name]
       )
 
-  defp hear(_db, _account, _event), do: nil
+  defp store_event(_db, _account, _event), do: nil
 
   defp inserted?(db, account, m) do
     query(
