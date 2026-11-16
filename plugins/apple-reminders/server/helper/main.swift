@@ -15,16 +15,16 @@ if ProcessInfo.processInfo.environment["ONE_HELPER_OWN"] == nil {
 
 Thread.detachNewThread {
     while let line = readLine() {
-        let answer: [String: Any]
+        let result: [String: Any]
         do {
             guard let call = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
                   let function = call["function"] as? String else { throw Refusal("the helper has no such call: \(line)") }
-            answer = ["ok": try run(function, Input(call["inputs"] as? [String: Any] ?? [:]))]
+            result = ["ok": try run(function, Input(call["inputs"] as? [String: Any] ?? [:]))]
         } catch {
-            answer = ["error": "\(error)"]
+            result = ["error": "\(error)"]
         }
-        let data = (try? JSONSerialization.data(withJSONObject: answer, options: [.fragmentsAllowed]))
-            ?? Data(#"{"error": "its answer isn't JSON"}"#.utf8)
+        let data = (try? JSONSerialization.data(withJSONObject: result, options: [.fragmentsAllowed]))
+            ?? Data(#"{"error": "its result isn't JSON"}"#.utf8)
         FileHandle.standardOutput.write(data + Data("\n".utf8))
     }
     exit(0)

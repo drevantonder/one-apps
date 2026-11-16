@@ -108,9 +108,9 @@ defmodule AgentsMd do
   @impl true
   def call(tool, inputs, call) do
     database = OneCore.Call.plugin(call, "database")
-    answer = database.transaction(call, @schema, &run(tool, inputs, call, {database, &1}))
+    result = database.transaction(call, @schema, &run(tool, inputs, call, {database, &1}))
     if tool in ["set", "skill_set", "skill_remove", "restore"], do: tell_devices(call)
-    answer
+    result
   end
 
   @doc """

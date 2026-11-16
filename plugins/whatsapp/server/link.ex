@@ -27,7 +27,7 @@ defmodule WhatsApp.Link do
   end
 
   @doc "Starts linking a phone for `who`: the QR code to scan, and given `phone`, the code to type instead."
-  def sign_in(service, who, phone), do: answer(GenServer.call(service, {:sign_in, who, phone}, 30_000))
+  def sign_in(service, who, phone), do: unwrap(GenServer.call(service, {:sign_in, who, phone}, 30_000))
 
   @doc "The QR code and phone code while a phone is linking here, or nothing."
   def pairing(service), do: GenServer.call(service, :pairing)
@@ -37,19 +37,19 @@ defmodule WhatsApp.Link do
 
   @doc "Sends `text` to `to`, a JID, a phone number or a contact's exact name, as `account`."
   def send(service, account, to, text),
-    do: answer(GenServer.call(service, {:ask, account, %{do: "send", to: to, text: text}}, 30_000))
+    do: unwrap(GenServer.call(service, {:ask, account, %{do: "send", to: to, text: text}}, 30_000))
 
   @doc "Starts the link of `account` here, for `who`, from the session the plugin keeps."
-  def start(service, who, account), do: answer(GenServer.call(service, {:start, who, account}, 60_000))
+  def start(service, who, account), do: unwrap(GenServer.call(service, {:start, who, account}, 60_000))
 
   @doc "Stops the link of `account` here, once its session is kept, so another machine can carry it on."
-  def stop(service, account), do: answer(GenServer.call(service, {:stop, account}, 60_000))
+  def stop(service, account), do: unwrap(GenServer.call(service, {:stop, account}, 60_000))
 
   @doc "Unlinks `account` from its phone, and stops it here."
-  def sign_out(service, account), do: answer(GenServer.call(service, {:sign_out, account}, 30_000))
+  def sign_out(service, account), do: unwrap(GenServer.call(service, {:sign_out, account}, 30_000))
 
-  defp answer({:ok, answer}), do: answer
-  defp answer({:error, why}), do: raise(why)
+  defp unwrap({:ok, unwrap}), do: unwrap
+  defp unwrap({:error, why}), do: raise(why)
 
   @impl GenServer
   def init(_) do
@@ -200,13 +200,13 @@ defmodule WhatsApp.Link do
     %{state | request_id: id}
   end
 
-  defp reply({:closing, from, _then}, answer), do: GenServer.reply(from, answer)
-  defp reply(from, answer), do: GenServer.reply(from, answer)
+  defp reply({:closing, from, _then}, response), do: GenServer.reply(from, response)
+  defp reply(from, response), do: GenServer.reply(from, response)
 
   # What the program says: an answer to what it was asked, or something it heard.
-  defp handle_event(state, port, %{"id" => id} = answer) do
+  defp handle_event(state, port, %{"id" => id} = response) do
     {from, state} = pop_in(state.ports[port].waiting[id])
-    result = if Map.has_key?(answer, "error"), do: {:error, answer["error"]}, else: {:ok, answer["ok"]}
+    result = if Map.has_key?(response, "error"), do: {:error, response["error"]}, else: {:ok, response["ok"]}
 
     case from do
       {:closing, _from, then} ->

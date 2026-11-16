@@ -156,8 +156,8 @@ defmodule Messenger do
       end
 
     server = device(call, inputs["device"])
-    answer = OneCore.Service.call(call, Browser, :sign_in, [call.subject, account], server)
-    if answer["error"], do: raise(answer["error"])
+    response = OneCore.Service.call(call, Browser, :sign_in, [call.subject, account], server)
+    if response["error"], do: raise(response["error"])
 
     "A browser window opened on #{OneCore.Service.name(server)}, at messenger.com: the user signs in there as #{account}, " <>
       "and ticks Keep me signed in. It's kept as soon as their chats show, and the window closes."
@@ -188,9 +188,9 @@ defmodule Messenger do
     running!(call)
 
     case OneCore.Service.call(call, Browser, :run, [call.subject, account, command]) do
-      %{"ok" => answer} ->
+      %{"ok" => response} ->
         transaction(call, &query(&1, "update accounts set why = null where name = ? and why is not null", [account]))
-        answer
+        response
 
       %{"code" => "signed_out", "error" => why} ->
         transaction(

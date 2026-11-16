@@ -95,14 +95,14 @@ defmodule Messenger.Browser do
   def handle_info({port, {:exit_status, status}}, %{port: port}),
     do: raise("Messenger's browser stopped, with status #{status}")
 
-  defp handle_event(state, %{"id" => id} = answer) do
+  defp handle_event(state, %{"id" => id} = response) do
     {{from, account, effect}, waiting} = Map.pop(state.waiting, id)
-    GenServer.reply(from, Map.take(answer, ["ok", "error", "code"]))
+    GenServer.reply(from, Map.take(response, ["ok", "error", "code"]))
 
     # An account's browser is open once a command ran on it, and not once Messenger signed it out.
     open =
       cond do
-        answer["code"] in ["signed_out", "no_session"] -> MapSet.delete(state.open, account)
+        response["code"] in ["signed_out", "no_session"] -> MapSet.delete(state.open, account)
         effect == :opens -> MapSet.put(state.open, account)
         true -> state.open
       end

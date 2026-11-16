@@ -19,7 +19,7 @@ defmodule AiGateway do
   alias OneCore.{Artifact, Call, Service}
 
   # How long a model may take to answer, in seconds.
-  @answers_within 300
+  @timeout 300
 
   @impl true
   def uses, do: ["vault"]
@@ -125,12 +125,12 @@ defmodule AiGateway do
 
     Enum.reduce_while(tries, [], fn id, why ->
       case request(call, id, body, inputs["schema"] != nil) do
-        {:ok, answer} -> {:halt, answer}
+        {:ok, result} -> {:halt, result}
         {:down, reason} -> {:cont, why ++ ["#{id}: #{reason}"]}
       end
     end)
     |> case do
-      %{} = answer -> answer
+      %{} = result -> result
       why -> raise "No model answered. " <> Enum.map_join(why, "; ", &String.trim_trailing(&1, ".")) <> "."
     end
   end
@@ -208,7 +208,7 @@ defmodule AiGateway do
           method: "post",
           headers: %{"authorization" => "Bearer {{api_key}}", "content-type" => "application/json"},
           body: JSON.encode!(Map.put(body, "model", model)),
-          timeout: @answers_within
+          timeout: @timeout
         }
 
         vault.fetch(call, item, request)
@@ -216,7 +216,7 @@ defmodule AiGateway do
         problem in RuntimeError -> {:down, problem.message}
       end
 
-    with %{status: status, body: body} <- sent, do: answered(call, id, item, status, body, json?)
+    with %{status: status, body: body} <- sent, do: handle_response(call, id, item, status, body, json?)
   end
 
   defp ask_machines(_call, [], _model, _body, _json?), do: {:down, "No machine of yours that's up has it"}
@@ -228,7 +228,7 @@ defmodule AiGateway do
             problem in RuntimeError -> %{"down" => problem.message}
           end) do
       %{"status" => status, "body" => body} ->
-        answered(call, "local/" <> model, Service.name(server), status, body, json?)
+        handle_response(call, "local/" <> model, Service.name(server), status, body, json?)
 
       %{"down" => _why} ->
         ask_machines(call, rest, model, body, json?)
@@ -236,10 +236,10 @@ defmodule AiGateway do
   end
 
   # What a model said, as an answer: its text, and that read as JSON when a schema was asked for.
-  defp answered(call, id, runs_on, status, body, json?) when status in 200..299 do
+  defp handle_response(call, id, runs_on, status, body, json?) when status in 200..299 do
     case JSON.decode(body) do
-      {:ok, %{"choices" => [%{"message" => %{"content" => content}} = choice | _]} = answered} ->
-        used(call, id, answered["usage"])
+      {:ok, %{"choices" => [%{"message" => %{"content" => content}} = choice | _]} = decoded} ->
+        used(call, id, decoded["usage"])
         text = text(content)
         json = if json?, do: JSON.decode(text), else: {:ok, nil}
 
@@ -260,7 +260,7 @@ defmodule AiGateway do
     end
   end
 
-  defp answered(_call, _id, _runs_on, status, body, _json?) do
+  defp handle_response(_call, _id, _runs_on, status, body, _json?) do
     why =
       case JSON.decode(body) do
         {:ok, %{"error" => %{"message" => message}}} -> message

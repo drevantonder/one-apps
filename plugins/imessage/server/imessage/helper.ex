@@ -26,7 +26,7 @@ defmodule IMessage.Helper do
   @doc "Asks the helper for `function` with `inputs`, and gives its answer, or raises with what it said."
   def ask(service, function, inputs) do
     case GenServer.call(service, {:ask, %{function: function, inputs: inputs}}, 120_000) do
-      %{"ok" => answer} -> answer
+      %{"ok" => result} -> result
       %{"error" => why} -> raise why
     end
   end

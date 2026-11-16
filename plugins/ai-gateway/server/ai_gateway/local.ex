@@ -14,7 +14,7 @@ defmodule AiGateway.Local do
   @servers [{"Ollama", 11434}, {"llama.cpp", 8080}, {"LM Studio", 1234}]
 
   # How long a model may take to answer, and a server to say what it has, in milliseconds.
-  @answers_within 300_000
+  @timeout 300_000
   @lists_within 3_000
 
   @impl OneCore.Service
@@ -56,11 +56,11 @@ defmodule AiGateway.Local do
 
         case Req.post(url(port, "/v1/chat/completions"),
                json: sent,
-               receive_timeout: @answers_within,
+               receive_timeout: @timeout,
                retry: false,
                decode_body: false
              ) do
-          {:ok, answer} -> %{"status" => answer.status, "body" => answer.body}
+          {:ok, response} -> %{"status" => response.status, "body" => response.body}
           {:error, _} -> %{"down" => "#{name} stopped answering"}
         end
     end

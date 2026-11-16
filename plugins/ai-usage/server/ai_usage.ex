@@ -131,7 +131,7 @@ defmodule AIUsage do
         }
 
       true ->
-        answers =
+        responses =
           servers
           |> Task.async_stream(
             fn server ->
@@ -146,11 +146,11 @@ defmodule AIUsage do
           )
           |> Enum.zip(servers)
           |> Map.new(fn
-            {{:ok, answer}, server} -> {OneCore.Service.name(server) || server, answer}
+            {{:ok, response}, server} -> {OneCore.Service.name(server) || server, response}
             {{:exit, _}, server} -> {OneCore.Service.name(server) || server, %{"error" => "it didn't answer in time"}}
           end)
 
-        %{answers: answers}
+        %{responses: responses}
     end
   end
 
@@ -160,12 +160,12 @@ defmodule AIUsage do
   defp merge(_db, _id, stored, %{problem: problem}, now),
     do: Enum.map(stored, &Map.merge(&1, %{"note" => "Couldn't update: #{problem}", "now" => now}))
 
-  defp merge(db, id, stored, %{answers: answers}, now) do
+  defp merge(db, id, stored, %{responses: responses}, now) do
     failed =
-      for {machine, %{"error" => why}} <- answers, into: %{}, do: {machine, "#{machine}: #{String.slice(why, 0, 160)}"}
+      for {machine, %{"error" => why}} <- responses, into: %{}, do: {machine, "#{machine}: #{String.slice(why, 0, 160)}"}
 
     reads =
-      for {machine, list} <- Enum.sort(answers),
+      for {machine, list} <- Enum.sort(responses),
           is_list(list),
           read <- list,
           read["provider"] == id,
@@ -249,7 +249,7 @@ defmodule AIUsage do
     seen = MapSet.new(results, & &1["account"])
 
     gone? =
-      &(Map.has_key?(answers, &1["machine"]) and not Map.has_key?(failed, &1["machine"]) and
+      &(Map.has_key?(responses, &1["machine"]) and not Map.has_key?(failed, &1["machine"]) and
           not Map.has_key?(unread, &1["account"]))
 
     for r <- stored,

@@ -18,7 +18,7 @@ const claude = {
     seven_day: { utilization: 71, resets_at: hours(30) },
   },
 }
-const answers = {
+const responses = {
   "/api/oauth/usage": (token) => claude[token],
   "/backend-api/wham/usage": (token) =>
     token === `${MARKER}-codex` && {
@@ -45,11 +45,11 @@ const server = Bun.serve({
   fetch(request) {
     const { pathname } = new URL(request.url)
     if (pathname === "/seen") return Response.json(seen)
-    const answer = answers[pathname]
-    if (!answer) return new Response("not here", { status: 404 })
+    const response = responses[pathname]
+    if (!response) return new Response("not here", { status: 404 })
     seen[pathname] = (seen[pathname] || 0) + 1
     const token = (request.headers.get("authorization") || "").replace(/^Bearer /, "")
-    const body = answer(token)
+    const body = response(token)
     return body ? Response.json(body) : new Response("who are you?", { status: 401 })
   },
 })
