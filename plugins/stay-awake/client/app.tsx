@@ -62,7 +62,7 @@ function Macs(props: { macs: Mac[]; again: () => void }) {
 }
 
 function App() {
-  const macs = createMemo(() => call("stay-awake_macs").then((text): Mac[] => JSON.parse(text)))
+  const macs = createMemo(() => call("stay-awake_macs").then((text): Mac[] => JSON.parse(text).macs))
   changed(() => refresh(macs))
   return (
     <Screen heading="Stay Awake" back onBack={leave}>

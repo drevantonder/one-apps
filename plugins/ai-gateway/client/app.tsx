@@ -39,7 +39,7 @@ interface Day {
 
 const models = createMemo(() => call("ai-gateway_models").then((text): { jobs: Job[]; places: Place[] } => JSON.parse(text)))
 /// What AI used this week, as Telemetry keeps it, or nothing where the network has no Telemetry.
-const spent = createMemo(() => call("telemetry_spending", { days: 7 }).then((text): Day[] => JSON.parse(text), () => null))
+const spent = createMemo(() => call("telemetry_spending", { days: 7 }).then((text): Day[] => JSON.parse(text).spending, () => null))
 changed(() => (refresh(models), refresh(spent)))
 const compact = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 })
 /// This week's tokens, and what they cost where an endpoint said.

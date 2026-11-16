@@ -32,7 +32,22 @@ defmodule AgentMemory do
   def apps, do: [%{name: "Agent Memory", page: "client/index.html", icon: "client/icon.svg"}]
 
   @block %{type: "string", description: "a block id, as wake or a nap prompt gives it, like 16-31"}
-  @format %{type: "string", enum: ["text", "json"], description: "json for the screen; text (the default) to read"}
+  # One line of the memory: a memory (`hi` one past `lo`, with its `id` and `date`), or the summary of a block.
+  @line %{
+    type: "object",
+    properties: %{
+      lo: %{type: "integer", description: "The first memory it covers"},
+      hi: %{type: "integer", description: "One past the last memory it covers"},
+      id: %{type: "integer", description: "A memory's id"},
+      date: %{type: "string", description: "A memory's day, YYYY-MM-DD"},
+      text: %{type: ["string", "null"], description: "The memory, or the summary: null for one not written yet"}
+    },
+    required: ["lo", "hi", "text"]
+  }
+  @nap %{
+    type: ["string", "null"],
+    description: "The next compression to do before your next action, as a prompt, or null if there's none"
+  }
 
   @impl true
   def tools do
@@ -51,17 +66,36 @@ defmodule AgentMemory do
             },
             T: %{type: "integer", description: "the snapshot a later part reads, as the previous part gives it"},
             format: %{
-              @format
-              | description:
-                  "json for the screen: every line, a summary not yet written as null; text (the default) to read"
+              type: "string",
+              enum: ["text", "json"],
+              description:
+                "json for the screen: every line as `memory`, a summary not yet written as null; text (the default) to read, in parts"
             }
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            count: %{type: "integer", description: "How many memories there are, the snapshot T"},
+            part: %{type: "integer", description: "Which part this is, from 1"},
+            parts: %{type: "integer", description: "How many parts there are"},
+            lines: %{
+              type: "array",
+              items: %{type: "string"},
+              description: "This part's lines, oldest first: #<id> <date> <memory>, or #<lo>-<hi> <summary>"
+            },
+            memory: %{type: "array", items: @line, description: "With format json: every line, oldest first"},
+            awake: %{type: "boolean", description: "Whether you've read it all"},
+            next: %{type: ["string", "null"], description: "What to run next, until you're awake"},
+            nap: @nap
+          },
+          required: ["count"]
         }
       },
       %{
         name: "note",
         description:
-          "Record one memory: one line, at most #{@entry} bytes. If it asks a compression, do it before your next action.",
+          "Remember something: record one memory, one line of at most #{@entry} bytes, for every agent to recall. If it asks a compression, do it before your next action.",
         inputs: %{
           type: "object",
           properties: %{
@@ -71,6 +105,11 @@ defmodule AgentMemory do
             }
           },
           required: ["text"]
+        },
+        outputs: %{
+          type: "object",
+          properties: %{id: %{type: "integer", description: "The memory's id"}, nap: @nap},
+          required: ["id", "nap"]
         }
       },
       %{
@@ -83,19 +122,36 @@ defmodule AgentMemory do
             block: @block,
             text: %{type: "string", description: "the summary: one line, at most #{@entry} bytes"}
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            saved: %{type: ["string", "null"], description: "The block whose summary it saved, if it saved one"},
+            nap: %{@nap | description: "The next compression, as a prompt, or null once nothing is left to compress"},
+            left: %{type: "integer", description: "How many compressions are left, that one among them"}
+          },
+          required: ["saved", "nap", "left"]
         }
       },
       %{
         name: "recall",
         read_only: true,
         description:
-          "Search every memory ever recorded, word for word, with a case-insensitive regular expression. Gives the newest matches that fit.",
+          "Search every memory ever recorded, word for word, with a case-insensitive regular expression, to remember what was decided or tried. Gives the newest matches that fit.",
         inputs: %{
           type: "object",
           properties: %{
             pattern: %{type: "string", description: "a regular expression, like kitchen|reno or deploy.*failed"}
           },
           required: ["pattern"]
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            matches: %{type: "array", items: %{type: "string"}, description: "The newest that fit, oldest first: #<id> <date> <memory>"},
+            count: %{type: "integer", description: "How many matched: more than are given where a narrower regex is needed"}
+          },
+          required: ["matches", "count"]
         }
       },
       %{
@@ -103,13 +159,25 @@ defmodule AgentMemory do
         read_only: true,
         description:
           "Open one node of the memory's tree into its two halves, each a summary or, once single, the memory itself.",
-        inputs: %{type: "object", properties: %{block: @block, format: @format}, required: ["block"]}
+        inputs: %{type: "object", properties: %{block: @block}, required: ["block"]},
+        outputs: %{
+          type: "object",
+          properties: %{halves: %{type: "array", items: @line, description: "Its halves that have memories yet"}},
+          required: ["halves"]
+        }
       },
       %{
         name: "forget",
         description:
           "Drop a bad summary and every one built on it; agent-memory_nap writes them again. The memories themselves are never touched.",
-        inputs: %{type: "object", properties: %{block: @block}, required: ["block"]}
+        inputs: %{type: "object", properties: %{block: @block}, required: ["block"]},
+        outputs: %{
+          type: "object",
+          properties: %{
+            forgot: %{type: "integer", description: "How many summaries it dropped, for agent-memory_nap to write again"}
+          },
+          required: ["forgot"]
+        }
       },
       %{
         name: "import",
@@ -124,6 +192,15 @@ defmodule AgentMemory do
             }
           },
           required: ["text"]
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            first: %{type: "integer", description: "The first imported memory's id"},
+            last: %{type: "integer", description: "The last one's"},
+            left: %{type: "integer", description: "How many compressions are pending: run agent-memory_nap"}
+          },
+          required: ["first", "last", "left"]
         }
       }
     ]
@@ -137,7 +214,7 @@ defmodule AgentMemory do
 
   defp run("wake", %{"format" => "json"}, m) do
     now = count(m)
-    %{count: now, lines: document(m, now)}
+    %{count: now, memory: document(m, now)}
   end
 
   defp run("wake", inputs, m) do
@@ -147,7 +224,7 @@ defmodule AgentMemory do
     if t > now, do: raise("T=#{t}, but the memory holds #{plural(now, "memory")}. Run: agent-memory_wake")
 
     if t == 0 do
-      "No memories yet. Record the first with agent-memory_note.\nYou are awake."
+      %{count: 0, part: 1, parts: 1, lines: [], awake: true, next: "No memories yet. Record the first with agent-memory_note.", nap: nil}
     else
       lines = document(m, t)
 
@@ -162,11 +239,12 @@ defmodule AgentMemory do
     text = line!(text)
     i = count(m)
     q(m, "insert into log (id, date, text) values (?, ?, ?)", [i, Date.to_iso8601(Date.utc_today()), text])
-    "Saved as ##{i}." <> after_nap(next_nap(m, i + 1))
+    %{id: i, nap: next_nap(m, i + 1)}
   end
 
   defp run("nap", inputs, m) when not is_map_key(inputs, "block") and not is_map_key(inputs, "text") do
-    next_nap(m, count(m)) || "Nothing left to compress."
+    t = count(m)
+    %{saved: nil, nap: next_nap(m, t), left: pending_count(m, t)}
   end
 
   defp run("nap", %{"block" => block, "text" => text}, m) do
@@ -175,22 +253,18 @@ defmodule AgentMemory do
 
     case pending(m, t, 1) do
       [] ->
-        "Nothing left to compress."
+        %{saved: nil, nap: nil, left: 0}
 
       [{^lo, ^hi}] ->
         size = hi - lo
         q(m, "insert into tree (size, k, text) values (?, ?, ?)", [size, div(lo, size), line!(text)])
-
-        case pending(m, t, 1) do
-          [] -> "#{lo}-#{hi - 1} saved.\nNothing left to compress."
-          [{a, b}] -> "#{lo}-#{hi - 1} saved.\n\n" <> nap_prompt(m, a, b, pending_count(m, t) - 1)
-        end
+        %{saved: "#{lo}-#{hi - 1}", nap: next_nap(m, t), left: pending_count(m, t)}
 
       [{a, b}] ->
         if summary(m, lo, hi) == nil,
           do:
             raise("Wrong block: #{block}. Blocks are built in order; the next is #{a}-#{b - 1}. Run: agent-memory_nap"),
-          else: "#{lo}-#{hi - 1} is already settled.\n\n#{next_nap(m, t)}"
+          else: %{saved: nil, nap: next_nap(m, t), left: pending_count(m, t)}
     end
   end
 
@@ -218,21 +292,10 @@ defmodule AgentMemory do
         fit(hits + 1, :queue.in(line, tail), size + byte_size(line) + 1)
       end)
 
-    tail = :queue.to_list(tail)
-
-    cond do
-      hits == 0 ->
-        "No match."
-
-      length(tail) < hits ->
-        Enum.join(tail ++ ["Newest #{length(tail)} of #{plural(hits, "match")}. Narrow the regex."], "\n")
-
-      true ->
-        Enum.join(tail ++ ["#{plural(hits, "match")}."], "\n")
-    end
+    %{matches: :queue.to_list(tail), count: hits}
   end
 
-  defp run("zoom", %{"block" => block} = inputs, m) do
+  defp run("zoom", %{"block" => block}, m) do
     {lo, hi} = block!(block)
     t = count(m)
     if lo >= t, do: raise("##{block} is beyond the memory: it holds #{plural(t, "memory")}. Run: agent-memory_wake")
@@ -244,9 +307,7 @@ defmodule AgentMemory do
         if b - a == 1, do: Map.merge(%{lo: a, hi: b}, hd(slice(m, a, b))), else: %{lo: a, hi: b, text: summary(m, a, b)}
       end
 
-    if inputs["format"] == "json",
-      do: halves,
-      else: Enum.map_join(halves, "\n", &(line(&1) || "##{&1.lo}-#{&1.hi - 1} not compressed yet"))
+    %{halves: halves}
   end
 
   defp run("forget", %{"block" => block}, m) do
@@ -264,7 +325,7 @@ defmodule AgentMemory do
       end)
 
     if gone == 0, do: raise("No summary at #{block}.")
-    "Forgot #{plural(gone, "summary")}, from #{lo}-#{hi - 1} up. Run: agent-memory_nap"
+    %{forgot: gone}
   end
 
   defp run("import", %{"text" => text}, m) do
@@ -307,9 +368,7 @@ defmodule AgentMemory do
         do: q(m, "insert into log (id, date, text) values (?, ?, ?)", [i, date, body])
 
     n = length(items)
-    left = pending_count(m, t + n)
-    pending = if left > 0, do: " #{plural(left, "compression")} pending. Run: agent-memory_nap", else: ""
-    "Imported #{plural(n, "memory")}, ##{t} to ##{t + n - 1}.#{pending}"
+    %{first: t, last: t + n - 1, left: pending_count(m, t + n)}
   end
 
   # Wake's answer once every line it needs is written: the part asked for, and whether there's more to read.
@@ -317,23 +376,31 @@ defmodule AgentMemory do
     parts = paginate(lines)
     count = length(parts)
     if k < 1 or k > count, do: raise("No part #{k}: the memory has #{plural(count, "part")}. Run: agent-memory_wake")
-    head = if count > 1, do: ["Your memory, part #{k} of #{count}, oldest first (#{plural(t, "memory")})."], else: []
+    awake = k == count
 
-    tail =
-      cond do
-        k < count -> ["Not awake yet. Run: agent-memory_wake with part #{k + 1} and T #{t}"]
-        nap = next_nap(m, t) -> ["You are awake.", "", nap]
-        true -> ["You are awake."]
-      end
-
-    Enum.join(head ++ Enum.at(parts, k - 1) ++ tail, "\n")
+    %{
+      count: t,
+      part: k,
+      parts: count,
+      lines: Enum.at(parts, k - 1),
+      awake: awake,
+      next: if(not awake, do: "Not awake yet. Run: agent-memory_wake with part #{k + 1} and T #{t}"),
+      nap: if(awake, do: next_nap(m, t))
+    }
   end
 
   defp cannot_wake(m, t, %{lo: lo, hi: hi}) do
     nap = next_nap(m, t) || raise "The summary of ##{lo}-#{hi - 1} is missing. Run: agent-memory_forget #{lo}-#{hi - 1}"
 
-    "Cannot wake: the memory context needs ##{lo}-#{hi - 1}, which is not compressed yet.\n" <>
-      "Do the #{plural(pending_count(m, t), "compression")} below, then run agent-memory_wake again.\n\n#{nap}"
+    %{
+      count: t,
+      lines: [],
+      awake: false,
+      next:
+        "Cannot wake: the memory context needs ##{lo}-#{hi - 1}, which is not compressed yet. " <>
+          "Do the #{plural(pending_count(m, t), "compression")} nap gives, then run agent-memory_wake again.",
+      nap: nap
+    }
   end
 
   # Drops the oldest matches kept until what's kept fits a part.
@@ -343,9 +410,6 @@ defmodule AgentMemory do
     {{:value, oldest}, tail} = :queue.out(tail)
     fit(hits, tail, size - byte_size(oldest) - 1)
   end
-
-  defp after_nap(nil), do: ""
-  defp after_nap(nap), do: "\n\n" <> nap
 
   # ---------------------------------------------------------------- blocks, as memo's
 

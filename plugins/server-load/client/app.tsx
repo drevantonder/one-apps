@@ -117,7 +117,7 @@ function DeviceView(props: { device: Device }) {
 }
 
 function App() {
-  const devices = createMemo(() => call("server-load_now", { format: "json" }).then((text): Device[] => JSON.parse(text)))
+  const devices = createMemo(() => call("server-load_now").then((text): Device[] => JSON.parse(text).devices))
   changed(() => refresh(devices))
   onSettled(() => {
     const again = () => document.visibilityState === "visible" && refresh(devices)

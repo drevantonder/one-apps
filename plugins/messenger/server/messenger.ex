@@ -19,6 +19,7 @@ defmodule Messenger do
     description: "which account, by the name it was signed in as, as messenger_accounts lists them; default the first"
   }
   @chat "the chat: its name as messenger_chats gives it, or a part of it only one recent chat has"
+  @time %{type: "string", description: "As Messenger shows it, like 11:02 AM or Mon"}
 
   @impl true
   def uses, do: ["database", "vault"]
@@ -37,40 +38,99 @@ defmodule Messenger do
         name: "accounts",
         read_only: true,
         description:
-          "The Messenger accounts signed in, the default first: each { account, ok }, with why when ok is false and it needs signing in again. Give account to the others to pick one.",
-        inputs: %{type: "object", properties: %{}}
+          "The Messenger accounts signed in, the default first, with why one needs signing in again. Give account to the others to pick one.",
+        inputs: %{type: "object", properties: %{}},
+        outputs: %{
+          type: "object",
+          properties: %{
+            accounts: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  account: %{type: "string"},
+                  ok: %{type: "boolean", description: "False when it needs signing in again"},
+                  why: %{type: "string", description: "Why it needs signing in again"}
+                },
+                required: ["account", "ok"]
+              }
+            }
+          },
+          required: ["accounts"]
+        }
       },
       %{
         name: "devices",
         read_only: true,
         description: "Your devices that run Messenger's browser, by name: where an account can be signed in.",
-        inputs: %{type: "object", properties: %{}}
+        inputs: %{type: "object", properties: %{}},
+        outputs: %{
+          type: "object",
+          properties: %{devices: %{type: "array", items: %{type: ["string", "null"]}}},
+          required: ["devices"]
+        }
       },
       %{
         name: "chats",
         read_only: true,
         description:
-          ~s|The recent Messenger chats messenger.com shows, newest first, to see what's new or find a chat to read: one a line, "Sam (unread), <time>: last message", the time as Messenger shows it. Older chats aren't reached. Takes some seconds: a browser reads it.|,
+          "The recent Messenger chats messenger.com shows, newest first, to see what's new or unread, or find a chat to read, each with its last message. Older chats aren't reached. Takes some seconds: a browser reads it.",
         inputs: %{
           type: "object",
           properties: %{account: @account, unread: %{type: "boolean", description: "only chats with unread messages"}}
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            chats: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  chat: %{type: "string", description: "Its name"},
+                  unread: %{type: "boolean"},
+                  time: @time,
+                  last: %{type: "string", description: "Its last message, as the list shows it"}
+                },
+                required: ["chat", "unread", "time", "last"]
+              }
+            }
+          },
+          required: ["chats"]
         }
       },
       %{
         name: "read",
         description:
-          ~s|A recent chat's latest messages, as messenger.com shows them when it opens, newest last: one a line, "[time] Sam: text", the time as Messenger shows it. Opening a chat marks it read, so one that was unread is marked unread again afterwards, but the sender may see it as seen.|,
+          "A recent chat's latest messages, as messenger.com shows them when it opens, newest last. Opening a chat marks it read, so one that was unread is marked unread again afterwards, but the sender may see it as seen.",
         inputs: %{
           type: "object",
           required: ["chat"],
           properties: %{account: @account, chat: %{type: "string", description: @chat}}
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            chat: %{type: "string", description: "The chat's name"},
+            messages: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{time: @time, sender: %{type: "string", description: "Who sent it, or You"}, text: %{type: "string"}},
+                required: ["time", "sender", "text"]
+              }
+            },
+            unread_again: %{type: "boolean", description: "For a chat that was unread: whether it was marked unread again"},
+            why: %{type: "string", description: "Why it couldn't be"}
+          },
+          required: ["chat", "messages"]
         }
       },
       %{
         name: "search",
         read_only: true,
         description:
-          ~s|Messages containing some words, across every chat, as Messenger's search finds them: to find something said when you don't know which chat. One a line: the chat and the message when it has one match ("Sam, <time>: text"), or how many ("Family: 3 matching messages"), for messenger_read.|,
+          "Messages containing some words, across every chat, as Messenger's search finds them: to find something said when you don't know which chat. Each chat with the message where it has one match, or how many, for messenger_read.",
         inputs: %{
           type: "object",
           required: ["query"],
@@ -78,6 +138,25 @@ defmodule Messenger do
             account: @account,
             query: %{type: "string", description: "words to find, as you'd type them in Messenger's search"}
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            matches: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  chat: %{type: "string"},
+                  count: %{type: "integer", description: "How many of its messages match"},
+                  time: @time,
+                  text: %{type: "string", description: "The message, where only one matches"}
+                },
+                required: ["chat", "count"]
+              }
+            }
+          },
+          required: ["matches"]
         }
       },
       %{
@@ -92,6 +171,11 @@ defmodule Messenger do
             chat: %{type: "string", description: @chat <> "; or anyone else by their exact name, as Messenger shows it"},
             text: %{type: "string", description: "the message, exactly as the user approved it"}
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{to: %{type: "string", description: "The chat it went to, by its name"}},
+          required: ["to"]
         }
       },
       %{
@@ -109,6 +193,14 @@ defmodule Messenger do
                 "the device whose screen they'll sign in at, by name, as messenger_devices lists them; default the first"
             }
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            account: %{type: "string", description: "The account they sign in as"},
+            device: %{type: ["string", "null"], description: "Where the window opened, at messenger.com"}
+          },
+          required: ["account", "device"]
         }
       },
       %{
@@ -119,21 +211,26 @@ defmodule Messenger do
           type: "object",
           required: ["account"],
           properties: %{account: %{type: "string", description: "the account's name, as messenger_accounts lists them"}}
-        }
+        },
+        outputs: %{type: "object", properties: %{account: %{type: "string"}}, required: ["account"]}
       }
     ]
   end
 
   @impl true
   def call("accounts", _inputs, call) do
-    for a <- transaction(call, &query(&1, "select * from accounts order by rowid")) do
-      if a["why"],
-        do: %{account: a["name"], ok: false, why: a["why"]},
-        else: %{account: a["name"], ok: true}
-    end
+    accounts =
+      for a <- transaction(call, &query(&1, "select * from accounts order by rowid")) do
+        if a["why"],
+          do: %{account: a["name"], ok: false, why: a["why"]},
+          else: %{account: a["name"], ok: true}
+      end
+
+    %{accounts: accounts}
   end
 
-  def call("devices", _inputs, call), do: Enum.map(OneCore.Service.servers(call, Browser), &OneCore.Service.name/1)
+  def call("devices", _inputs, call),
+    do: %{devices: Enum.map(OneCore.Service.servers(call, Browser), &OneCore.Service.name/1)}
 
   def call("chats", inputs, call), do: browse(call, inputs, %{"do" => "chats", "unread" => inputs["unread"] == true})
   def call("read", inputs, call), do: browse(call, inputs, %{"do" => "read", "chat" => inputs["chat"]})
@@ -159,8 +256,7 @@ defmodule Messenger do
     response = OneCore.Service.call(call, Browser, :sign_in, [call.subject, account], server)
     if response["error"], do: raise(response["error"])
 
-    "A browser window opened on #{OneCore.Service.name(server)}, at messenger.com: the user signs in there as #{account}, " <>
-      "and ticks Keep me signed in. It's kept as soon as their chats show, and the window closes."
+    %{account: account, device: OneCore.Service.name(server)}
   end
 
   def call("sign_out", %{"account" => want}, call) do
@@ -177,11 +273,11 @@ defmodule Messenger do
     OneCore.Call.plugin(call, "vault").remove(call, item(account))
     OneCore.Artifact.remove(call.own, "sessions/#{account}")
     transaction(call, &query(&1, "delete from accounts where name = ?", [account]))
-    "Messenger no longer reads #{account}, and its session is deleted."
+    %{account: account}
   end
 
-  # Runs a command of the browser's on an account. One that Messenger signed out is kept as needing signing in:
-  # a read says so as its answer, and a send fails.
+  # Runs a command of the browser's on an account. One that Messenger signed out is kept as needing signing in, and
+  # the call fails saying so.
   defp browse(call, inputs, command) do
     account = transaction(call, &account!(&1, inputs["account"]))
 
@@ -198,7 +294,7 @@ defmodule Messenger do
           &query(&1, "update accounts set why = ? where name = ?", ["Messenger signed it out: sign in again", account])
         )
 
-        if command["do"] == "send", do: raise(why), else: why
+        raise why
 
       %{"error" => why} ->
         raise why

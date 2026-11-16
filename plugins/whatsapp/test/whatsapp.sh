@@ -38,7 +38,7 @@ options="--name a" start a
 options="--name b" start b
 deployed=$(ask a deploy --name whatsapp --files-from "$folder/whatsapp" || true)
 echo "$deployed" | head -c 600 && echo
-[[ $deployed == *"is running"* ]]
+[[ $deployed == *"\"version\""* ]]
 
 say "The owner's key is made on their phone, which chooses both servers to open their Vault"
 mkdir -p "$folder/phone"

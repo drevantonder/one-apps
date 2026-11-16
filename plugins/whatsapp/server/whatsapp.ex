@@ -46,6 +46,26 @@ defmodule WhatsApp do
       "which of your devices that run WhatsApp to link it on, by name, as whatsapp_devices lists them; default the first"
   }
   @limit %{type: "integer", description: "at most this many; default 30"}
+  @time %{type: "string", description: "When, in the network's time zone, like 3 Nov 2026 09:00"}
+  @message %{
+    type: "object",
+    properties: %{
+      time: @time,
+      from: %{type: "string", description: "Who sent it, or You for the user"},
+      chat: %{type: "string", description: "With search: the chat it's in"},
+      text: %{type: "string"}
+    },
+    required: ["time", "from", "text"]
+  }
+  @devices %{
+    type: "object",
+    properties: %{devices: %{type: "array", items: %{type: ["string", "null"]}}},
+    required: ["devices"]
+  }
+  @codes %{
+    qr: %{type: "string", description: "The QR code to scan on the phone, drawn in text"},
+    code: %{type: ["string", "null"], description: "The code to type on the phone instead, given phone"}
+  }
 
   @impl true
   def uses, do: ["database", "vault"]
@@ -64,21 +84,63 @@ defmodule WhatsApp do
         name: "accounts",
         read_only: true,
         description:
-          "The WhatsApp accounts linked on any of your devices: each { account, ok, device }, account its number and device where it's linked, with why when ok is false. Give account to the others to pick one.",
-        inputs: %{type: "object", properties: %{}}
+          "The WhatsApp accounts linked on any of your devices: each one's number, where it's linked, and why it isn't connected when it isn't. Give account to the others to pick one.",
+        inputs: %{type: "object", properties: %{}},
+        outputs: %{
+          type: "object",
+          properties: %{
+            accounts: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  account: %{type: "string", description: "Its number, +61..."},
+                  ok: %{type: "boolean", description: "Whether it's connected"},
+                  device: %{type: "string", description: "Where it's linked"},
+                  why: %{type: "string", description: "Why it isn't connected"}
+                },
+                required: ["account", "ok", "device"]
+              }
+            }
+          },
+          required: ["accounts"]
+        }
       },
       %{
         name: "status",
         read_only: true,
         description:
           "Whether each WhatsApp account is linked and connected, on which device, and how many messages are kept. For why chats are missing.",
-        inputs: %{type: "object", properties: %{}}
+        inputs: %{type: "object", properties: %{}},
+        outputs: %{
+          type: "object",
+          properties: %{
+            accounts: %{
+              type: "array",
+              description: "Empty when none is linked: whatsapp_sign_in links one",
+              items: %{
+                type: "object",
+                properties: %{
+                  account: %{type: "string", description: "Its number, +61..."},
+                  device: %{type: "string", description: "Where it's linked"},
+                  connected: %{type: "boolean"},
+                  why: %{type: ["string", "null"], description: "Why it isn't connected"},
+                  messages: %{type: "integer", description: "How many messages are kept"},
+                  chats: %{type: "integer", description: "In how many chats"}
+                },
+                required: ["account", "device", "connected", "why", "messages", "chats"]
+              }
+            }
+          },
+          required: ["accounts"]
+        }
       },
       %{
         name: "devices",
         read_only: true,
         description: "Your devices that run WhatsApp, by name: where a phone can be linked, or a link moved to.",
-        inputs: %{type: "object", properties: %{}}
+        inputs: %{type: "object", properties: %{}},
+        outputs: @devices
       },
       %{
         name: "sign_in",
@@ -95,20 +157,30 @@ defmodule WhatsApp do
             },
             device: @device
           }
+        },
+        outputs: %{
+          type: "object",
+          properties:
+            Map.put(@codes, :how, %{type: "string", description: "What to tell the user to do with them, on their phone"}),
+          required: ["qr", "code", "how"]
         }
       },
       %{
         name: "pairing",
         read_only: true,
         description:
-          "The QR code and phone code while a phone is linking, for the screen: { qr, code }, or {} when none is.",
-        inputs: %{type: "object", properties: %{device: @device}}
+          "The QR code and phone code while a phone is linking, for the screen, or neither when none is.",
+        inputs: %{type: "object", properties: %{device: @device}},
+        outputs: %{
+          type: "object",
+          properties: Map.put(@codes, :error, %{type: "string", description: "Why linking failed"})
+        }
       },
       %{
         name: "chats",
         read_only: true,
         description:
-          ~s|Recent WhatsApp chats, most recent first, to see what's new or find a chat to read: one a line, "Sam (2 unread), 09:00: You: last message". Page back with skip.|,
+          "Recent WhatsApp chats, most recent first, to see what's new or unread, or find a chat to read, each with its last message. None yet just after linking: WhatsApp takes a few minutes to send them. Page back with skip.",
         inputs: %{
           type: "object",
           properties: %{
@@ -120,13 +192,32 @@ defmodule WhatsApp do
               description: "leave out this many of the most recent, to page back: 30 for the second page of 30"
             }
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            chats: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  chat: %{type: "string", description: "Its name"},
+                  jid: %{type: "string", description: "Its JID"},
+                  unread: %{type: "integer", description: "How many are unread"},
+                  last: @message
+                },
+                required: ["chat", "jid", "unread", "last"]
+              }
+            }
+          },
+          required: ["chats"]
         }
       },
       %{
         name: "read",
         read_only: true,
         description:
-          ~s|One WhatsApp chat's messages, newest last, one a line, "[3 Nov 2026 09:00] Sam: text", and You for the user. WhatsApp isn't told they were read: the sender sees no blue ticks, and the chat stays unread on the phone. Page back with skip.|,
+          "One WhatsApp chat's messages, newest last. WhatsApp isn't told they were read: the sender sees no blue ticks, and the chat stays unread on the phone. Page back with skip.",
         inputs: %{
           type: "object",
           required: ["chat"],
@@ -139,13 +230,18 @@ defmodule WhatsApp do
               description: "leave out this many of the newest, to read further back: 30 for the 30 before the latest 30"
             }
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{chat: %{type: "string", description: "Its name"}, messages: %{type: "array", items: @message}},
+          required: ["chat", "messages"]
         }
       },
       %{
         name: "search",
         read_only: true,
         description:
-          ~s|WhatsApp messages containing some text, across every chat or in one, newest last: to find something said when you don't know which chat. One a line, "[3 Nov 2026 09:00] Sam in Family: text", the chat only when it isn't Sam's own and "You to Sam" for the user's. Page back with skip.|,
+          "WhatsApp messages containing some text, across every chat or in one, newest last, each with its chat: to find something said when you don't know which chat. Page back with skip.",
         inputs: %{
           type: "object",
           required: ["query"],
@@ -156,7 +252,8 @@ defmodule WhatsApp do
             limit: @limit,
             skip: %{type: "integer", description: "leave out this many of the newest matches, to page back"}
           }
-        }
+        },
+        outputs: %{type: "object", properties: %{messages: %{type: "array", items: @message}}, required: ["messages"]}
       },
       %{
         name: "send",
@@ -170,6 +267,11 @@ defmodule WhatsApp do
             chat: %{type: "string", description: @chat <> "; or a contact's exact name, for someone with no chat yet"},
             text: %{type: "string", description: "the message, exactly as the user approved it"}
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{to: %{type: "string", description: "Whom it went to, by name"}},
+          required: ["to"]
         }
       },
       %{
@@ -183,6 +285,18 @@ defmodule WhatsApp do
             account: @account,
             to: %{type: "string", description: "the device to move it to, by its name as whatsapp_devices lists it"}
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            account: %{type: "string", description: "Its number, +61..."},
+            device: %{type: ["string", "null"], description: "Where it is now"},
+            stopped: %{
+              type: "boolean",
+              description: "Whether it stopped where it was; one that wasn't up won't start it again there"
+            }
+          },
+          required: ["account", "device", "stopped"]
         }
       },
       %{
@@ -197,6 +311,11 @@ defmodule WhatsApp do
               description: "the account's number, as whatsapp_accounts lists them; needed when several are linked"
             }
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{account: %{type: "string", description: "The number it signed out of, +61..."}},
+          required: ["account"]
         }
       }
     ]
@@ -207,13 +326,16 @@ defmodule WhatsApp do
     links = transaction(call, &query(&1, "select * from links order by rowid"))
     live = live(call, links)
 
-    for link <- links do
-      device = OneCore.Service.name(link["server"]) || "a device"
-      %{connected: connected, why: why} = how(link, live, device)
+    accounts =
+      for link <- links do
+        device = OneCore.Service.name(link["server"]) || "a device"
+        %{connected: connected, why: why} = how(link, live, device)
 
-      %{account: "+" <> link["account"], ok: connected, device: device}
-      |> then(&if(why, do: Map.put(&1, :why, why), else: &1))
-    end
+        %{account: "+" <> link["account"], ok: connected, device: device}
+        |> then(&if(why, do: Map.put(&1, :why, why), else: &1))
+      end
+
+    %{accounts: accounts}
   end
 
   def call("status", _inputs, call) do
@@ -231,23 +353,23 @@ defmodule WhatsApp do
 
     live = live(call, links)
 
-    if links == [] do
-      "No WhatsApp account is linked: whatsapp_sign_in links one."
-    else
-      Enum.map_join(links, "\n", fn link ->
+    accounts =
+      for link <- links do
         device = OneCore.Service.name(link["server"]) || "a device"
         count = counts[link["account"]] || %{"messages" => 0, "chats" => 0}
-        stored = "#{count["messages"]} messages in #{count["chats"]} chats are kept."
 
-        case how(link, live, device) do
-          %{connected: true} -> "+#{link["account"]} is linked on #{device}, and connected. #{stored}"
-          %{why: why} -> "+#{link["account"]}: #{why}. #{stored}"
-        end
-      end)
-    end
+        Map.merge(how(link, live, device), %{
+          account: "+" <> link["account"],
+          device: device,
+          messages: count["messages"],
+          chats: count["chats"]
+        })
+      end
+
+    %{accounts: accounts}
   end
 
-  def call("devices", _inputs, call), do: Enum.map(running(call), &OneCore.Service.name/1)
+  def call("devices", _inputs, call), do: %{devices: Enum.map(running(call), &OneCore.Service.name/1)}
 
   def call("sign_in", inputs, call) do
     phone = inputs["phone"] && pairing_phone(inputs["phone"])
@@ -261,7 +383,7 @@ defmodule WhatsApp do
         do: "#{how} Or tap Link with phone number instead and type #{linked["code"]} within 2 minutes.",
         else: "#{how} If this is on the phone itself, sign_in with phone instead, for a code to type there."
 
-    how <> " WhatsApp then sends recent chats, which takes a few minutes.\n\n" <> linked["text"]
+    %{qr: linked["text"], code: linked["code"], how: how <> " WhatsApp then sends recent chats, which takes a few minutes."}
   end
 
   def call("pairing", inputs, call) do
@@ -291,26 +413,17 @@ defmodule WhatsApp do
 
       names = names(db, account)
 
-      lines =
+      chats =
         for r <- rows do
-          name = name(names, r["jid"], r["name"]) <> if(r["unread"] > 0, do: " (#{r["unread"]} unread)", else: "")
-
-          last =
-            cond do
-              r["from_me"] == 1 -> "You: " <> r["text"]
-              String.ends_with?(r["jid"], "@g.us") -> name(names, r["sender"], r["sender_name"]) <> ": " <> r["text"]
-              true -> r["text"]
-            end
-
-          "#{name}, #{short(r["time"])}: #{Enum.join(String.split(last), " ")}"
+          %{
+            chat: name(names, r["jid"], r["name"]),
+            jid: r["jid"],
+            unread: r["unread"],
+            last: message(names, r)
+          }
         end
 
-      cond do
-        lines != [] -> Enum.join(lines, "\n")
-        inputs["unread"] -> "No unread chats."
-        skip > 0 -> "No more chats."
-        true -> "No chats yet: after linking, WhatsApp takes a few minutes to send them."
-      end
+      %{chats: chats}
     end)
   end
 
@@ -321,10 +434,8 @@ defmodule WhatsApp do
       account = account!(db, inputs["account"])
       {jid, name} = find!(db, account, want)
 
-      case messages(db, account, jid, nil, limit, skip) do
-        [] -> "No messages with #{name} here."
-        found -> lines(db, account, found, false)
-      end
+      names = names(db, account)
+      %{chat: name, messages: for(m <- messages(db, account, jid, nil, limit, skip), do: message(names, m))}
     end)
   end
 
@@ -336,10 +447,13 @@ defmodule WhatsApp do
       account = account!(db, inputs["account"])
       jid = if inputs["chat"], do: elem(find!(db, account, inputs["chat"]), 0)
 
-      case messages(db, account, jid, query, limit, skip) do
-        [] -> "Nothing found."
-        found -> lines(db, account, found, jid == nil)
-      end
+      names = names(db, account)
+
+      messages =
+        for m <- messages(db, account, jid, query, limit, skip),
+            do: Map.put(message(names, m), :chat, name(names, m["chat"], ""))
+
+      %{messages: messages}
     end)
   end
 
@@ -362,7 +476,7 @@ defmodule WhatsApp do
       end)
 
     sent = OneCore.Service.call(call, Link, :send, [account, to, text], server)
-    "Sent to #{sent["name"]}."
+    %{to: sent["name"]}
   end
 
   def call("move", %{"to" => to} = inputs, call) do
@@ -378,14 +492,12 @@ defmodule WhatsApp do
 
     # Stopped where it was first, with its session kept, so it's never connected from two machines. A machine
     # that isn't up can't be asked, and won't start it again when it's back: the links say where it is.
-    was = OneCore.Service.name(from) || "the device it was on"
-
-    left =
+    stopped =
       try do
         OneCore.Service.call(call, Link, :stop, [account], from)
-        "It stopped on #{was}."
+        true
       rescue
-        _ -> "#{was} wasn't up, and won't start it again."
+        _ -> false
       end
 
     transaction(
@@ -394,7 +506,7 @@ defmodule WhatsApp do
     )
 
     OneCore.Service.call(call, Link, :start, [who, account], server)
-    "Moved +#{account} to #{OneCore.Service.name(server)}, with its messages. #{left}"
+    %{account: "+" <> account, device: OneCore.Service.name(server), stopped: stopped}
   end
 
   def call("sign_out", inputs, call) do
@@ -410,7 +522,7 @@ defmodule WhatsApp do
 
     forget(call, link["account"])
     transaction(call, &query(&1, "delete from links where account = ?", [link["account"]]))
-    "Signed out of +#{link["account"]}: it's no longer one of WhatsApp's linked devices, and its messages are deleted."
+    %{account: "+" <> link["account"]}
   end
 
   @doc false
@@ -713,21 +825,10 @@ defmodule WhatsApp do
     |> Enum.reverse()
   end
 
-  defp lines(db, account, found, with_chat) do
-    names = names(db, account)
-
-    Enum.map_join(found, "\n", fn m ->
-      at = long(m["time"])
-      sender = if m["from_me"] == 1, do: "You", else: name(names, m["sender"], m["sender_name"])
-      chat = name(names, m["chat"], "")
-
-      cond do
-        not with_chat -> "[#{at}] #{sender}: #{m["text"]}"
-        m["from_me"] == 1 -> "[#{at}] You to #{chat}: #{m["text"]}"
-        sender != chat -> "[#{at}] #{sender} in #{chat}: #{m["text"]}"
-        true -> "[#{at}] #{sender}: #{m["text"]}"
-      end
-    end)
+  # A message as the tools give it: when, from whom (You for the user), and what.
+  defp message(names, m) do
+    from = if m["from_me"] == 1, do: "You", else: name(names, m["sender"], m["sender_name"])
+    %{time: long(m["time"]), from: from, text: m["text"]}
   end
 
   defp page(inputs), do: {max(1, inputs["limit"] || 30), max(0, inputs["skip"] || 0)}
@@ -766,25 +867,6 @@ defmodule WhatsApp do
   defp day(seconds) do
     {{_, mo, d}, {h, mi, _}} = local(seconds)
     "#{d} #{Enum.at(@months, mo - 1)} #{two(h)}:#{two(mi)}"
-  end
-
-  defp short(seconds) do
-    {{y, mo, d} = date, {h, mi, _}} = local(seconds)
-    {today, _} = local(now())
-
-    cond do
-      date == today ->
-        "#{two(h)}:#{two(mi)}"
-
-      now() - seconds < 6 * 86_400 ->
-        "#{Enum.at(~w(Mon Tue Wed Thu Fri Sat Sun), :calendar.day_of_the_week(date) - 1)} #{two(h)}:#{two(mi)}"
-
-      y == elem(today, 0) ->
-        "#{d} #{Enum.at(@months, mo - 1)}"
-
-      true ->
-        "#{d} #{Enum.at(@months, mo - 1)} #{y}"
-    end
   end
 
   # A blob replaced whole, whatever was there.

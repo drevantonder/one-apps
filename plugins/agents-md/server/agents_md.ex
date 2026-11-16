@@ -13,7 +13,12 @@ defmodule AgentsMd do
   ]
 
   @skill %{type: "string", description: "the skill's name, from agents-md_skills, like writing-for-agents"}
-  @every_device "every device's agent tools get it within a minute"
+  @revision %{
+    type: "string",
+    description: "The new revision's id, for agents-md_restore. Every device's agent tools get it within a minute"
+  }
+  @made %{type: "object", properties: %{id: @revision}, required: ["id"]}
+  @named %{type: "object", properties: %{name: %{type: "string"}, id: @revision}, required: ["name", "id"]}
 
   @impl true
   def uses, do: ["database"]
@@ -25,30 +30,58 @@ defmodule AgentsMd do
         name: "get",
         read_only: true,
         description:
-          "The AGENTS.md every agent tool on every device gets, as { text }. Read it before agents-md_set, which replaces all of it.",
-        inputs: %{type: "object", properties: %{}}
+          "The AGENTS.md every agent tool on every device gets: the instructions Claude Code reads as CLAUDE.md, and Codex, OpenCode and Amp as AGENTS.md. Read it before agents-md_set, which replaces all of it.",
+        inputs: %{type: "object", properties: %{}},
+        outputs: %{
+          type: "object",
+          properties: %{text: %{type: "string", description: "The whole AGENTS.md, as markdown"}},
+          required: ["text"]
+        }
       },
       %{
         name: "set",
         description:
-          "Replace the AGENTS.md every agent tool on every device gets: all of it, so start from agents-md_get's text. agents-md_history keeps the old one.",
+          "Replace the AGENTS.md (CLAUDE.md) every agent tool on every device gets, its instructions: all of it, so start from agents-md_get's text. agents-md_history keeps the old one.",
         inputs: %{
           type: "object",
           properties: %{text: %{type: "string", description: "the whole new AGENTS.md, as markdown"}},
           required: ["text"]
-        }
+        },
+        outputs: @made
       },
       %{
         name: "skills",
         read_only: true,
         description: "Every skill on every device: its name and description. agents-md_skill reads one's files.",
-        inputs: %{type: "object", properties: %{}}
+        inputs: %{type: "object", properties: %{}},
+        outputs: %{
+          type: "object",
+          properties: %{
+            skills: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{name: %{type: "string"}, description: %{type: "string"}},
+                required: ["name", "description"]
+              }
+            }
+          },
+          required: ["skills"]
+        }
       },
       %{
         name: "skill",
         read_only: true,
-        description: "One skill's files, as { name, files: { path: text } }.",
-        inputs: %{type: "object", properties: %{name: @skill}, required: ["name"]}
+        description: "One skill's files, each one's text by its path in the skill.",
+        inputs: %{type: "object", properties: %{name: @skill}, required: ["name"]},
+        outputs: %{
+          type: "object",
+          properties: %{
+            name: %{type: "string"},
+            files: %{type: "object", additionalProperties: %{type: "string"}, description: "Each file's text, by its path"}
+          },
+          required: ["name", "files"]
+        }
       },
       %{
         name: "skill_set",
@@ -69,13 +102,15 @@ defmodule AgentsMd do
             }
           },
           required: ["name", "files"]
-        }
+        },
+        outputs: @named
       },
       %{
         name: "skill_remove",
         description:
           "Remove a skill from every device. agents-md_history with its name, then agents-md_restore, brings it back.",
-        inputs: %{type: "object", properties: %{name: @skill}, required: ["name"]}
+        inputs: %{type: "object", properties: %{name: @skill}, required: ["name"]},
+        outputs: @named
       },
       %{
         name: "history",
@@ -90,6 +125,26 @@ defmodule AgentsMd do
               description: "a skill's name, from agents-md_skills, like writing-for-agents; omit for AGENTS.md"
             }
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            revisions: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  id: %{type: "string", description: "For agents-md_restore"},
+                  time: %{type: "string", description: "When, in ISO 8601"},
+                  by: %{type: ["string", "null"], description: "Who made it"},
+                  size: %{type: "integer", description: "In bytes"},
+                  change: %{type: "string", description: "Its first changed line, + added or - taken out, or removed"}
+                },
+                required: ["id", "time", "by", "size", "change"]
+              }
+            }
+          },
+          required: ["revisions"]
         }
       },
       %{
@@ -100,6 +155,14 @@ defmodule AgentsMd do
           type: "object",
           properties: %{id: %{type: "string", description: "the revision's id, from agents-md_history"}},
           required: ["id"]
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            id: @revision,
+            name: %{type: ["string", "null"], description: "The skill it restored, or null for AGENTS.md"}
+          },
+          required: ["id", "name"]
         }
       }
     ]
@@ -137,15 +200,17 @@ defmodule AgentsMd do
   defp run("get", _inputs, _call, db), do: %{text: elem(state(records(db)), 0)}
 
   defp run("set", %{"text" => text}, call, db) do
-    keep(db, call, "agentsmd", %{text: text})
-    "AGENTS.md is set; #{@every_device}."
+    %{id: keep(db, call, "agentsmd", %{text: text})}
   end
 
   defp run("skills", _inputs, _call, db) do
-    for {name, files} <- elem(state(records(db)), 1) do
-      front = frontmatter(files["SKILL.md"])
-      %{name: name, description: (is_map(front) && front["description"]) || ""}
-    end
+    skills =
+      for {name, files} <- elem(state(records(db)), 1) do
+        front = frontmatter(files["SKILL.md"])
+        %{name: name, description: (is_map(front) && front["description"]) || ""}
+      end
+
+    %{skills: skills}
   end
 
   defp run("skill", %{"name" => name}, _call, db),
@@ -153,17 +218,15 @@ defmodule AgentsMd do
 
   defp run("skill_set", %{"name" => name, "files" => files}, call, db) do
     if why = invalid(name, files) || unintroduced(name, files), do: raise(why)
-    keep(db, call, "skill", %{name: name, files: files})
-    "#{name} is set; #{@every_device}."
+    %{name: name, id: keep(db, call, "skill", %{name: name, files: files})}
   end
 
   defp run("skill_remove", %{"name" => name}, call, db) do
     named(elem(state(records(db)), 1), name)
-    keep(db, call, "skill_removed", %{name: name})
-    "#{name} is removed; #{@every_device}."
+    %{name: name, id: keep(db, call, "skill_removed", %{name: name})}
   end
 
-  defp run("history", inputs, _call, db), do: history(records(db), inputs["name"])
+  defp run("history", inputs, _call, db), do: %{revisions: history(records(db), inputs["name"])}
 
   defp run("restore", %{"id" => id}, call, db) do
     case Enum.find(records(db), &(&1.id == id)) do
@@ -171,13 +234,11 @@ defmodule AgentsMd do
         raise "No revision #{id}: ids come from agents-md_history"
 
       %{kind: "agentsmd", data: data} ->
-        keep(db, call, "agentsmd", data)
-        "That AGENTS.md is current again; #{@every_device}."
+        %{id: keep(db, call, "agentsmd", data), name: nil}
 
       %{kind: "skill", data: %{"name" => name, "files" => files} = data} ->
         if why = invalid(name, files), do: raise(why)
-        keep(db, call, "skill", data)
-        "That #{name} is current again; #{@every_device}."
+        %{id: keep(db, call, "skill", data), name: name}
 
       _ ->
         raise "#{id} isn't a revision of AGENTS.md or a skill"
@@ -202,6 +263,7 @@ defmodule AgentsMd do
     end
   end
 
+  # Keeps a revision, and gives its id.
   defp keep({database, db}, call, kind, data) do
     database.query(db, "insert into records (kind, data, time, by) values (?, ?, ?, ?)", [
       kind,
@@ -209,6 +271,8 @@ defmodule AgentsMd do
       System.system_time(:millisecond),
       call.actor
     ])
+
+    to_string(hd(database.query(db, "select max(n) as n from records", []))["n"])
   end
 
   # What's current: AGENTS.md's text, and each skill's files by its name.

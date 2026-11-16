@@ -14,7 +14,7 @@ interface Memory {
   text: string | null
 }
 
-const ask = <T,>(tool: string, inputs = {}): Promise<T> => call(`agent-memory_${tool}`, { ...inputs, format: "json" }).then(JSON.parse)
+const ask = <T,>(tool: string, inputs = {}): Promise<T> => call(`agent-memory_${tool}`, inputs).then(JSON.parse)
 
 const single = (line: Memory) => line.hi - line.lo === 1
 const name = (line: Memory) => (single(line) ? `#${line.lo}` : `#${line.lo}–${line.hi - 1}`)
@@ -23,7 +23,7 @@ const day = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short",
 /// One line: a memory, or a summary that opens into its halves.
 function Line(props: { line: Memory }) {
   const [halves, setHalves] = createSignal<Memory[]>()
-  const toggle = async () => setHalves(halves() ? undefined : await ask<Memory[]>("zoom", { block: `${props.line.lo}-${props.line.hi - 1}` }).catch(() => undefined))
+  const toggle = async () => setHalves(halves() ? undefined : await ask<{ halves: Memory[] }>("zoom", { block: `${props.line.lo}-${props.line.hi - 1}` }).then((zoomed) => zoomed.halves, () => undefined))
   const words = () => (
     <span class="words">
       <span class="about">
@@ -55,21 +55,21 @@ function Lines(props: { lines: Memory[] }) {
 let pinned = true
 addEventListener("scroll", () => (pinned = innerHeight + scrollY >= document.body.scrollHeight - 40), { passive: true })
 
-function Remembered(props: { memory: { count: number; lines: Memory[] } }) {
+function Remembered(props: { memory: { count: number; memory: Memory[] } }) {
   createEffect(() => props.memory.count, () => {
     if (pinned) scrollTo(0, document.body.scrollHeight)
   })
   return (
-    <Show when={props.memory.lines.length} fallback={<Empty>Nothing remembered yet</Empty>}>
+    <Show when={props.memory.memory.length} fallback={<Empty>Nothing remembered yet</Empty>}>
       <div class="lines">
-        <Lines lines={props.memory.lines} />
+        <Lines lines={props.memory.memory} />
       </div>
     </Show>
   )
 }
 
 function App() {
-  const memory = createMemo(() => ask<{ count: number; lines: Memory[] }>("wake"))
+  const memory = createMemo(() => ask<{ count: number; memory: Memory[] }>("wake", { format: "json" }))
   changed(() => refresh(memory))
   return (
     <Screen heading="Agent Memory" back onBack={leave}>

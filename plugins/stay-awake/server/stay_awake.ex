@@ -9,6 +9,17 @@ defmodule StayAwake do
 
   @device %{type: "string", description: "the Mac, by name, as `services` names it; else the first that has Stay Awake"}
 
+  # How Stay Awake stands on a Mac.
+  @status %{
+    type: "object",
+    properties: %{
+      on: %{type: "boolean", description: "Whether Stay Awake is on for it"},
+      holding: %{type: "boolean", description: "Whether it's keeping it from sleeping now"},
+      plugged_in: %{type: "boolean", description: "Whether it's plugged in: on battery it sleeps as usual"}
+    },
+    required: ["on", "holding", "plugged_in"]
+  }
+
   @impl true
   def apps, do: [%{name: "Stay Awake", page: "client/index.html", icon: "client/icon.svg"}]
 
@@ -22,14 +33,16 @@ defmodule StayAwake do
         name: "widget",
         read_only: true,
         description: "Stay Awake's widget, as a layout: each Mac it's on for, with a switch",
-        inputs: %{type: "object", properties: %{size: %{type: "string", enum: ["2x2", "4x2"]}}}
+        inputs: %{type: "object", properties: %{size: %{type: "string", enum: ["2x2", "4x2"]}}},
+        outputs: %{type: "object", properties: %{part: %{type: "string"}}, required: ["part"]}
       },
       %{
         name: "status",
         read_only: true,
         description:
           "Whether Stay Awake is on for a Mac, whether it's keeping it from sleeping now, and whether it's plugged in: a Mac on battery sleeps as usual.",
-        inputs: %{type: "object", properties: %{device: @device}}
+        inputs: %{type: "object", properties: %{device: @device}},
+        outputs: @status
       },
       %{
         name: "set",
@@ -39,14 +52,34 @@ defmodule StayAwake do
           type: "object",
           required: ["on"],
           properties: %{on: %{type: "boolean"}, device: @device}
-        }
+        },
+        outputs: @status
       },
       %{
         name: "macs",
         read_only: true,
         description:
           "Every Mac Stay Awake is installed on, by name, and how each stands, as stay-awake_status says it; a Mac that's off has when it was last seen instead, and one that can't be asked a problem.",
-        inputs: %{type: "object", properties: %{}}
+        inputs: %{type: "object", properties: %{}},
+        outputs: %{
+          type: "object",
+          properties: %{
+            macs: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties:
+                  Map.merge(@status.properties, %{
+                    name: %{type: ["string", "null"]},
+                    problem: %{type: "string", description: "Why it couldn't be asked: off, or what went wrong"},
+                    seen: %{type: "integer", description: "When one that's off was last seen, in milliseconds since 1970"}
+                  }),
+                required: ["name"]
+              }
+            }
+          },
+          required: ["macs"]
+        }
       }
     ]
   end
@@ -60,7 +93,7 @@ defmodule StayAwake do
   # Each Mac's switch, with a grey line saying how it stands, or for one that's off, when it was last seen.
   def call("widget", _inputs, call) do
     rows =
-      for mac <- call("macs", %{}, call) do
+      for mac <- call("macs", %{}, call).macs do
         says =
           cond do
             mac["problem"] -> seen(mac["seen"])
@@ -88,23 +121,26 @@ defmodule StayAwake do
 
   # A Mac that's off isn't asked: it says when it was last seen instead.
   def call("macs", _inputs, call) do
-    for server <- OneCore.Service.servers(call, Mac) do
-      status =
-        case OneCore.Service.seen(server) do
-          seen when is_integer(seen) ->
-            %{"problem" => "It's off.", "seen" => seen}
+    macs =
+      for server <- OneCore.Service.servers(call, Mac) do
+        status =
+          case OneCore.Service.seen(server) do
+            seen when is_integer(seen) ->
+              %{"problem" => "It's off.", "seen" => seen}
 
-          # On, or nothing keeps who's on, as with no address.
-          _ ->
-            try do
-              OneCore.Service.call(call, Mac, :status, [], server)
-            rescue
-              problem -> %{"problem" => Exception.message(problem)}
-            end
-        end
+            # On, or nothing keeps who's on, as with no address.
+            _ ->
+              try do
+                OneCore.Service.call(call, Mac, :status, [], server)
+              rescue
+                problem -> %{"problem" => Exception.message(problem)}
+              end
+          end
 
-      Map.put(status, "name", OneCore.Service.name(server))
-    end
+        Map.put(status, "name", OneCore.Service.name(server))
+      end
+
+    %{macs: macs}
   end
 
   # The server that is the Mac called `name`, or the first that has Stay Awake.

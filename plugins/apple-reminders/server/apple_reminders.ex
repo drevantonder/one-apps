@@ -11,7 +11,20 @@ defmodule AppleReminders do
 
   @id %{type: "string", description: "the reminder's id, as apple-reminders_list gives it"}
   @priority %{type: "string", enum: ["high", "medium", "low", "none"], description: "high, medium, low or none"}
-  @reminder "{ id, title, list, due, priority, notes, completed }, due a date or, with a time, an ISO 8601 date-time in the Mac's time zone, and completed when it was done"
+  # A reminder, with only what it has.
+  @reminder %{
+    type: "object",
+    properties: %{
+      id: %{type: "string", description: "For apple-reminders_update or apple-reminders_delete"},
+      title: %{type: "string"},
+      list: %{type: "string", description: "Its list's name"},
+      due: %{type: "string", description: "An ISO 8601 date, or with a time a date-time in the Mac's time zone"},
+      priority: %{type: "string", enum: ["high", "medium", "low"]},
+      notes: %{type: "string"},
+      completed: %{type: "string", description: "When it was done, in ISO 8601, if it was"}
+    },
+    required: ["id", "title"]
+  }
 
   @impl true
   def tools do
@@ -20,14 +33,33 @@ defmodule AppleReminders do
         name: "lists",
         read_only: true,
         description:
-          "Every reminder list: each { name, id, account, default }, account being where it syncs (iCloud, Exchange). Use a name as list in apple-reminders_list or apple-reminders_create.",
-        inputs: %{type: "object", properties: %{}}
+          "Every reminder list, and where each syncs (iCloud, Exchange). Use a name as list in apple-reminders_list or apple-reminders_create.",
+        inputs: %{type: "object", properties: %{}},
+        outputs: %{
+          type: "object",
+          properties: %{
+            lists: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  name: %{type: "string"},
+                  id: %{type: "string"},
+                  account: %{type: "string", description: "Where it syncs: iCloud, Exchange"},
+                  default: %{type: "boolean", description: "Whether it's the Mac's default list"}
+                },
+                required: ["name", "id"]
+              }
+            }
+          },
+          required: ["lists"]
+        }
       },
       %{
         name: "list",
         read_only: true,
         description:
-          "Reminders not yet done, soonest due first and those with no due date last, from every list or one; completed ones too if asked. Gives each #{@reminder}.",
+          "Reminders and to-dos not yet done, soonest due first and those with no due date last, from every list or one; completed ones too if asked. Use it to search them, or for one's id to update or delete.",
         inputs: %{
           type: "object",
           properties: %{
@@ -47,7 +79,8 @@ defmodule AppleReminders do
               description: "at most this many, the soonest due; default 100. For more, narrow by list, until or query"
             }
           }
-        }
+        },
+        outputs: %{type: "object", properties: %{reminders: %{type: "array", items: @reminder}}, required: ["reminders"]}
       },
       %{
         name: "create",
@@ -70,7 +103,8 @@ defmodule AppleReminders do
             notes: %{type: "string", description: "more detail, as plain text"},
             priority: @priority
           }
-        }
+        },
+        outputs: @reminder
       },
       %{
         name: "update",
@@ -91,17 +125,32 @@ defmodule AppleReminders do
             priority: @priority,
             completed: %{type: "boolean", description: "true marks it done; false makes it not done again"}
           }
-        }
+        },
+        outputs: @reminder
       },
       %{
         name: "delete",
         description:
           "Delete a reminder from its list, on every Apple device. It can't be undone; to tick one off instead, apple-reminders_update with completed.",
-        inputs: %{type: "object", required: ["id"], properties: %{id: @id}}
+        inputs: %{type: "object", required: ["id"], properties: %{id: @id}},
+        outputs: %{
+          type: "object",
+          properties: %{id: %{type: "string", description: "The reminder it deleted"}},
+          required: ["id"]
+        }
       }
     ]
   end
 
   @impl true
-  def call(tool, inputs, call), do: OneCore.Service.call(call, AppleReminders.Helper, :ask, [tool, inputs])
+  def call(tool, inputs, call) do
+    answer = OneCore.Service.call(call, AppleReminders.Helper, :ask, [tool, inputs])
+
+    case tool do
+      "lists" -> %{lists: answer}
+      "list" -> %{reminders: answer}
+      "delete" -> %{id: inputs["id"]}
+      _reminder -> answer
+    end
+  end
 end

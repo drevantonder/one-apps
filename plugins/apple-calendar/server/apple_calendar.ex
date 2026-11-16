@@ -39,6 +39,25 @@ defmodule AppleCalendar do
     notes: %{type: "string", description: "more detail, as plain text"}
   }
 
+  # An event as EventKit has it. What it doesn't have is left out.
+  @event %{
+    type: "object",
+    properties: %{
+      id: %{type: "string", description: "For apple-calendar_update or apple-calendar_delete; a repeating event's names this occurrence"},
+      title: %{type: "string"},
+      calendar: %{type: "string", description: "Its calendar's name"},
+      start: %{type: "string", description: "ISO 8601, in the Mac's time zone: a date for an all-day event"},
+      end: %{type: "string", description: "ISO 8601, in the Mac's time zone: an all-day event's last day"},
+      all_day: %{type: "boolean"},
+      repeats: %{type: "boolean"},
+      location: %{type: "string"},
+      notes: %{type: "string"},
+      url: %{type: "string"},
+      attendees: %{type: "array", items: %{type: "string"}, description: "Each one's name, or address"}
+    },
+    required: ["id", "title", "start", "end"]
+  }
+
   @impl true
   def tools do
     [
@@ -46,14 +65,34 @@ defmodule AppleCalendar do
         name: "calendars",
         read_only: true,
         description:
-          "Every calendar on the Mac: each { name, id, account, writable, default }, account being where it syncs (iCloud, Google, Exchange). Use a name as calendar in apple-calendar_events or apple-calendar_create; only writable ones take new events.",
-        inputs: %{type: "object", properties: %{}}
+          "Every calendar on the Mac, and where each syncs (iCloud, Google, Exchange). Use a name as calendar in apple-calendar_events or apple-calendar_create; only writable ones take new events.",
+        inputs: %{type: "object", properties: %{}},
+        outputs: %{
+          type: "object",
+          properties: %{
+            calendars: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  name: %{type: "string"},
+                  id: %{type: "string"},
+                  account: %{type: "string", description: "Where it syncs: iCloud, Google, Exchange"},
+                  writable: %{type: "boolean", description: "Whether it takes new events"},
+                  default: %{type: "boolean", description: "Whether it's the Mac's default calendar"}
+                },
+                required: ["name", "id", "writable"]
+              }
+            }
+          },
+          required: ["calendars"]
+        }
       },
       %{
         name: "events",
         read_only: true,
         description:
-          "Events between from and to, by default the coming week, earliest first, from every calendar or one. Gives each { id, title, calendar, start, end, all_day, repeats, location, notes, url, attendees }, as EventKit has them, times in the Mac's time zone. Use it to see what's on, or for an event's id to update or delete.",
+          "Events between from and to, by default the coming week, earliest first, from every calendar or one, as EventKit has them, times in the Mac's time zone. Use it to see what's on today or this week, search for an event, or for an event's id to update or delete.",
         inputs: %{
           type: "object",
           properties: %{
@@ -76,13 +115,15 @@ defmodule AppleCalendar do
               description: "at most this many, the earliest; default 200. For more, narrow from and to"
             }
           }
-        }
+        },
+        outputs: %{type: "object", properties: %{events: %{type: "array", items: @event}}, required: ["events"]}
       },
       %{
         name: "create",
         description:
           "Add an event to one of the Mac's calendars, which syncs it to that calendar's account; invitees aren't added. Gives back the new event as apple-calendar_events lists it, with its id for apple-calendar_update or apple-calendar_delete.",
-        inputs: %{type: "object", required: ["title", "start"], properties: @fields}
+        inputs: %{type: "object", required: ["title", "start"], properties: @fields},
+        outputs: @event
       },
       %{
         name: "update",
@@ -100,17 +141,32 @@ defmodule AppleCalendar do
                 description: "move it to this calendar, by its name as apple-calendar_calendars lists them"
               }
             })
-        }
+        },
+        outputs: @event
       },
       %{
         name: "delete",
         description:
           "Delete an event from its calendar, or one occurrence of a repeating event (with future, every later one too). It can't be undone: the calendar's account deletes it everywhere.",
-        inputs: %{type: "object", required: ["id"], properties: %{id: @id, future: @future}}
+        inputs: %{type: "object", required: ["id"], properties: %{id: @id, future: @future}},
+        outputs: %{
+          type: "object",
+          properties: %{id: %{type: "string", description: "The event it deleted"}},
+          required: ["id"]
+        }
       }
     ]
   end
 
   @impl true
-  def call(tool, inputs, call), do: OneCore.Service.call(call, AppleCalendar.Helper, :ask, [tool, inputs])
+  def call(tool, inputs, call) do
+    answer = OneCore.Service.call(call, AppleCalendar.Helper, :ask, [tool, inputs])
+
+    case tool do
+      "calendars" -> %{calendars: answer}
+      "events" -> %{events: answer}
+      "delete" -> %{id: inputs["id"]}
+      _event -> answer
+    end
+  end
 end

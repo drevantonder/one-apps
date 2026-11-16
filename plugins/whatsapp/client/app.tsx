@@ -154,7 +154,7 @@ function WhatsApp(props: { state: { accounts: Account[]; devices: string[] }; ag
 
 function App() {
   const state = createMemo(async () => {
-    const [accounts, devices] = await Promise.all([ask<Account[]>("accounts"), ask<string[]>("devices")])
+    const [{ accounts }, { devices }] = await Promise.all([ask<{ accounts: Account[] }>("accounts"), ask<{ devices: string[] }>("devices")])
     return { accounts, devices }
   })
   changed(() => refresh(state))

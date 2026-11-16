@@ -158,8 +158,8 @@ async function openChat(held, chats, c) {
 const commands = {
   async chats({ account, state, unread }) {
     const held = await page(account, state)
-    const lines = (await list(held)).filter((c) => !unread || c.unread).map((c) => `${c.name}${c.unread ? " (unread)" : ""}, ${c.time}: ${c.last}`)
-    return lines.length ? lines.join("\n") : unread ? "No unread chats." : "No chats."
+    const chats = (await list(held)).filter((c) => !unread || c.unread)
+    return { chats: chats.map((c) => ({ chat: c.name, unread: c.unread, time: c.time, last: c.last })) }
   },
 
   async read({ account, state, chat }) {
@@ -170,7 +170,7 @@ const commands = {
     if (!c) throw new Refusal(`no recent chat called ${JSON.stringify(chat)}; recent chats: ${chats.map((c) => c.name).join("; ")}`)
     await openChat(held, chats, c)
     const messages = (await until(held.page, reads.messages)).map(message).filter(Boolean)
-    let note = ""
+    const read = { chat: c.name, messages }
     // Opening a chat marks it read: one that was unread is marked unread again.
     if (c.unread) {
       try {
@@ -178,14 +178,15 @@ const commands = {
         // Its menu's button shows only under a pointer, so it's pressed as an event, as a screen reader does.
         await held.page.getByRole("button", { name: MENU + c.name, exact: true }).dispatchEvent("click")
         await held.page.getByRole("menuitem", { name: "Mark as unread" }).dispatchEvent("click")
-        note = "\n(Marked unread again.)"
+        read.unread_again = true
       } catch (error) {
-        note = `\n(Couldn't mark it unread again: ${error.message.split("\n")[0]})`
+        read.unread_again = false
+        read.why = `Couldn't mark it unread again: ${error.message.split("\n")[0]}`
       }
       held.dirty = true
     }
-    if (!messages.length) throw new Error(`no messages showed in ${c.name}${note}`)
-    return messages.map((m) => `[${m.time}] ${m.sender}: ${m.text}`).join("\n") + note
+    if (!messages.length) throw new Error(`no messages showed in ${c.name}${read.why ? `. ${read.why}` : ""}`)
+    return read
   },
 
   async search({ account, state, query }) {
@@ -196,13 +197,12 @@ const commands = {
     await held.page.getByRole("combobox", { name: "Search Messenger" }).fill(query)
     await held.page.getByRole("link", { name: `Search messages for ${query}` }).click()
     const found = await until(held.page, reads.matches, MENU, 20)
-    if (!found.length) return "Nothing found."
-    return found
-      .map((m) => {
+    return {
+      matches: found.map((m) => {
         const count = m.rest.match(/^(\d+) matched messages?$/)
-        return count ? `${m.chat}: ${count[1]} matching messages` : `${m.chat}, ${m.time}: ${m.rest}`
-      })
-      .join("\n")
+        return count ? { chat: m.chat, count: Number(count[1]) } : { chat: m.chat, count: 1, time: m.time, text: m.rest }
+      }),
+    }
   },
 
   /// Sends to a recent chat, or else to the one person Messenger suggests whose name is exactly `chat`. Anything
@@ -236,7 +236,7 @@ const commands = {
     for (let n = 0; n < 20; n++) {
       held.dirty = true
       const now = pick(await list(held), name)
-      if (now && words(now.last) === `You: ${words(text)}`) return `Sent to ${now.name}.`
+      if (now && words(now.last) === `You: ${words(text)}`) return { to: now.name }
       await sleep(500)
     }
     throw new Error(`typed the message to ${name}, but it didn't show as sent`)

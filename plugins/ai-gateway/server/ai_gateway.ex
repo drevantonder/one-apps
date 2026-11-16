@@ -35,12 +35,13 @@ defmodule AiGateway do
     }
 
     job = %{type: "string", description: "What it's for, such as chat or vision: lowercase letters, digits and -"}
+    maybe = &%{type: ["boolean", "null"], description: &1}
 
     [
       %{
         name: "chat",
         description:
-          "Asks a model, and answers with its `text`, the `model` that answered and where it `runs_on`. With `schema`, `json` is the answer read as JSON",
+          "Asks an AI model (an LLM) a question, to read a photo, sort, sum up or write: answers with its text, the model that answered and where it runs. With a schema, json is the answer read as JSON",
         inputs: %{
           type: "object",
           properties: %{
@@ -61,6 +62,16 @@ defmodule AiGateway do
             temperature: %{type: "number", description: "0 for the same answer each time, higher for more varied ones"}
           },
           required: ["messages"]
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            text: %{type: "string", description: "What the model answered"},
+            json: %{description: "With schema: the answer read as JSON, as the schema says"},
+            model: %{type: "string", description: "The model that answered, by its id"},
+            runs_on: %{type: "string", description: "Where it ran: a machine's name, or the Vault item of an endpoint"}
+          },
+          required: ["text", "model", "runs_on"]
         }
       },
       %{
@@ -68,7 +79,54 @@ defmodule AiGateway do
         read_only: true,
         description:
           "Every model you can use, by where it runs, with whether that's up and what each does (vision, structured answers), and which models each job tries, in order",
-        inputs: %{type: "object", properties: %{}}
+        inputs: %{type: "object", properties: %{}},
+        outputs: %{
+          type: "object",
+          properties: %{
+            places: %{
+              type: "array",
+              description: "Where models run: a machine of yours, or a hosted endpoint",
+              items: %{
+                type: "object",
+                properties: %{
+                  name: %{type: "string", description: "The machine's name, or the endpoint's Vault item"},
+                  kind: %{type: "string", enum: ["machine", "hosted"]},
+                  server: %{type: "string", description: "A machine's server key"},
+                  up: %{type: "boolean", description: "Whether it's answering"},
+                  seen: %{type: "integer", description: "When a machine that's off was last seen, in milliseconds since 1970"},
+                  problem: %{type: "string", description: "Why it isn't up, where it says"},
+                  models: %{
+                    type: "array",
+                    items: %{
+                      type: "object",
+                      properties: %{
+                        id: %{type: "string", description: "Its id, for chat's model and set"},
+                        name: %{type: "string"},
+                        vision: maybe.("Whether it reads images, where it says"),
+                        structured: maybe.("Whether it keeps to a schema, where it says")
+                      },
+                      required: ["id", "name"]
+                    }
+                  }
+                },
+                required: ["name", "kind", "up", "models"]
+              }
+            },
+            jobs: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  job: %{type: "string"},
+                  models: %{type: "array", items: %{type: "string"}, description: "The models it tries, in order"},
+                  whose: %{type: "string", enum: ["yours", "everyone's"]}
+                },
+                required: ["job", "models", "whose"]
+              }
+            }
+          },
+          required: ["places", "jobs"]
+        }
       },
       %{
         name: "set",
@@ -78,6 +136,15 @@ defmodule AiGateway do
           type: "object",
           properties: %{job: job, models: %{type: "array", items: model}},
           required: ["job", "models"]
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            job: %{type: "string"},
+            models: %{type: "array", items: %{type: "string"}, description: "The models it tries now, in order"},
+            whose: %{type: "string", enum: ["yours", "everyone's"]}
+          },
+          required: ["job", "models", "whose"]
         }
       }
     ]
@@ -159,11 +226,7 @@ defmodule AiGateway do
       if models == [], do: Map.delete(jobs, job), else: Map.put(jobs, job, Enum.uniq(models))
     end)
 
-    whose = if call.subject == "network", do: "Everyone's", else: "Your"
-
-    if models == [],
-      do: "#{whose} #{job} tries no models of its own now.",
-      else: "#{whose} #{job} tries #{Enum.join(Enum.uniq(models), ", then ")}."
+    %{job: job, models: Enum.uniq(models), whose: if(call.subject == "network", do: "everyone's", else: "yours")}
   end
 
   # Each model asked is a span of the call, as OpenTelemetry's conventions for AI name it: Telemetry shows how long

@@ -16,7 +16,18 @@ defmodule IMessage do
       "only messages after this: an ISO 8601 date (2026-11-01) or date-time (2026-11-01T09:00), in the Mac's time zone without an offset"
   }
   @limit %{type: "integer", description: "at most this many; default 30"}
-  @message "{ time, from, text, attachments }, time ISO 8601 in the Mac's time zone, from the sender's name from Contacts (or their number), or me for the user, and attachments the files' names"
+  @message %{
+    type: "object",
+    properties: %{
+      time: %{type: "string", description: "ISO 8601, in the Mac's time zone"},
+      from: %{type: "string", description: "The sender's name from Contacts, or their number, or me for the user"},
+      text: %{type: "string"},
+      attachments: %{type: "array", items: %{type: "string"}, description: "The files' names"},
+      chat: %{type: "string", description: "With search: its chat's name"}
+    },
+    required: ["time", "from"]
+  }
+  @messages %{type: "object", properties: %{messages: %{type: "array", items: @message}}, required: ["messages"]}
 
   @impl true
   def tools do
@@ -25,7 +36,7 @@ defmodule IMessage do
         name: "chats",
         read_only: true,
         description:
-          "Recent chats, most recent first, to see what's new or find a chat to read: each { chat, id, with, last, from, text, unread }, chat its name, id for imessage_read, with the people in a group, and last (an ISO 8601 time), from and text its last message. Page back with skip.",
+          "Recent chats and texts, most recent first, to see what's new or unread, or find a chat to read, each with its last message. Page back with skip.",
         inputs: %{
           type: "object",
           properties: %{
@@ -36,13 +47,35 @@ defmodule IMessage do
               description: "leave out this many of the most recent, to page back: 30 for the second page of 30"
             }
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            chats: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  chat: %{type: "string", description: "Its name"},
+                  id: %{type: "string", description: "For imessage_read"},
+                  with: %{type: "array", items: %{type: "string"}, description: "The people in a group"},
+                  last: %{type: "string", description: "When its last message came, in ISO 8601"},
+                  from: %{type: "string", description: "Who sent its last message, or me"},
+                  text: %{type: "string", description: "Its last message"},
+                  unread: %{type: "integer", description: "How many are unread, if any"}
+                },
+                required: ["chat", "id", "last"]
+              }
+            }
+          },
+          required: ["chats"]
         }
       },
       %{
         name: "read",
         read_only: true,
         description:
-          "One chat's messages, newest last, without marking them read: each #{@message}. Page back with skip.",
+          "One chat's messages and texts, newest last, without marking them read. Page back with skip.",
         inputs: %{
           type: "object",
           required: ["chat"],
@@ -55,7 +88,8 @@ defmodule IMessage do
               description: "leave out this many of the newest, to read further back: 30 for the 30 before the latest 30"
             }
           }
-        }
+        },
+        outputs: @messages
       },
       %{
         name: "search",
@@ -72,12 +106,13 @@ defmodule IMessage do
             limit: @limit,
             skip: %{type: "integer", description: "leave out this many of the newest matches, to page back"}
           }
-        }
+        },
+        outputs: @messages
       },
       %{
         name: "send",
         description:
-          "Send an iMessage from the user's account to a chat, a phone number or an email address. It sends a real message to a real person and can't be taken back: only what the user asked to send, to whom they asked. Says to whom it went.",
+          "Send an iMessage or text from the user's account to a chat, a phone number or an email address. It sends a real message to a real person and can't be taken back: only what the user asked to send, to whom they asked. Says to whom it went.",
         inputs: %{
           type: "object",
           required: ["to", "text"],
@@ -89,11 +124,26 @@ defmodule IMessage do
             },
             text: %{type: "string", description: "the message, exactly as the user approved it"}
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{to: %{type: "string", description: "The chat it went to, by its name"}},
+          required: ["to"]
         }
       }
     ]
   end
 
   @impl true
-  def call(tool, inputs, call), do: OneCore.Service.call(call, IMessage.Helper, :ask, [tool, inputs])
+  def call(tool, inputs, call) do
+    answer = OneCore.Service.call(call, IMessage.Helper, :ask, [tool, inputs])
+
+    # The helper on the Mac says to whom a message went as a sentence, and stays as it is: a changed helper is a new
+    # app to macOS, which asks its person again to let it control Messages.
+    case {tool, answer} do
+      {"chats", chats} -> %{chats: chats}
+      {"send", "Sent to " <> to} -> %{to: String.trim_trailing(to, ".")}
+      {_messages, messages} -> %{messages: messages}
+    end
+  end
 end

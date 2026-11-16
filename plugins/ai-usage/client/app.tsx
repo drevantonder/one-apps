@@ -124,7 +124,7 @@ function Plans(props: { usage: { providers: Plan[]; problem?: string } }) {
 }
 
 function App() {
-  const usage = createMemo(() => call("ai-usage_status", { format: "json" }).then(JSON.parse))
+  const usage = createMemo(() => call("ai-usage_status").then(JSON.parse))
   changed(() => refresh(usage))
   return (
     <Screen heading="AI Usage" back onBack={leave}>

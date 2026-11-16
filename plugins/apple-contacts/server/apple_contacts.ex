@@ -9,7 +9,31 @@ defmodule AppleContacts do
   @impl true
   def icon, do: "icon.png"
 
-  @card "{ id, name, nickname, organization, job, phones, emails, addresses, birthday, urls }, each only when the card has it; name is the organization's when the card has no name, phones, emails and addresses are each { label, number } or { label, address }, and birthday is year-month-day, or month-day when the card has no year"
+  # A contact's card, with only what it has.
+  @labeled &%{
+    type: "array",
+    items: %{
+      type: "object",
+      properties: Map.put(%{label: %{type: "string", description: "home, work, mobile and so on"}}, &1, %{type: "string"}),
+      required: ["label", Atom.to_string(&1)]
+    }
+  }
+  @card %{
+    type: "object",
+    properties: %{
+      id: %{type: "string", description: "For apple-contacts_get"},
+      name: %{type: "string", description: "The organization's, when the card has no name"},
+      nickname: %{type: "string"},
+      organization: %{type: "string"},
+      job: %{type: "string"},
+      phones: @labeled.(:number),
+      emails: @labeled.(:address),
+      addresses: Map.put(@labeled.(:address), :description, "Each a postal address, as a letter shows it"),
+      birthday: %{type: "string", description: "YYYY-MM-DD, or MM-DD when the card has no year"},
+      urls: %{type: "array", items: %{type: "string"}}
+    },
+    required: ["id", "name"]
+  }
 
   @impl true
   def tools do
@@ -18,7 +42,7 @@ defmodule AppleContacts do
         name: "search",
         read_only: true,
         description:
-          "Find people in the user's contacts by name, email address or phone number, for someone's number or address before writing to them. Gives each #{@card}, by name.",
+          "Find people in the user's contacts by name, email address or phone number, for someone's phone number, email or address before writing to them. Gives each one's card, by name.",
         inputs: %{
           type: "object",
           required: ["query"],
@@ -29,29 +53,35 @@ defmodule AppleContacts do
             },
             limit: %{type: "integer", description: "at most this many, by name; default 25"}
           }
-        }
+        },
+        outputs: %{type: "object", properties: %{contacts: %{type: "array", items: @card}}, required: ["contacts"]}
       },
       %{
         name: "get",
         read_only: true,
         description:
-          "One contact's card, by its id from apple-contacts_search: #{@card}. Use it to look again at someone already found; apple-contacts_search gives the same cards.",
+          "One contact's card, by its id from apple-contacts_search. Use it to look again at someone already found; apple-contacts_search gives the same cards.",
         inputs: %{
           type: "object",
           required: ["id"],
           properties: %{id: %{type: "string", description: "the contact's id, as apple-contacts_search gives it"}}
-        }
+        },
+        outputs: @card
       },
       %{
         name: "me",
         read_only: true,
         description:
-          "The user's own card, the one Contacts marks as theirs: #{@card}. Use it for their own name, number or address.",
-        inputs: %{type: "object", properties: %{}}
+          "The user's own card, the one Contacts marks as theirs. Use it for their own name, phone number, email or address.",
+        inputs: %{type: "object", properties: %{}},
+        outputs: @card
       }
     ]
   end
 
   @impl true
-  def call(tool, inputs, call), do: OneCore.Service.call(call, AppleContacts.Helper, :ask, [tool, inputs])
+  def call(tool, inputs, call) do
+    answer = OneCore.Service.call(call, AppleContacts.Helper, :ask, [tool, inputs])
+    if tool == "search", do: %{contacts: answer}, else: answer
+  end
 end

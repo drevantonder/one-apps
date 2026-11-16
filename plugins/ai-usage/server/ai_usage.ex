@@ -45,6 +45,20 @@ defmodule AIUsage do
   @impl true
   def apps, do: [%{name: "AI Usage", page: "client/index.html", icon: "client/icon.svg"}]
 
+  @percent %{type: ["number", "null"], description: "Percent"}
+  # One window of a plan: how much of it is used and left, when it resets, and its pace.
+  @window %{
+    type: "object",
+    properties: %{
+      used: @percent,
+      left: @percent,
+      resets: %{type: ["string", "null"], description: "When, as a person reads it, like Sun at 11:59 PM"},
+      countdown: %{type: ["string", "null"], description: "When, from now, like in 1d 3h"},
+      pace: %{type: ["string", "null"], description: "In the provider's words: a deficit or a reserve against even use, what was expected by now, and whether it lasts"},
+      will_last: %{type: ["boolean", "null"], description: "Whether the pace lasts until it resets"}
+    }
+  }
+
   @impl true
   def tools do
     [
@@ -57,13 +71,63 @@ defmodule AIUsage do
           type: "object",
           properties: %{
             provider: %{type: "string", enum: ["all" | @order], description: "all (the default) or one"},
-            format: %{
-              type: "string",
-              enum: ["text", "json"],
-              description: "text (the default) to read, json for screens"
-            },
             device: %{type: "string", description: "one machine to read, by name; omit for every machine's"}
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            at: %{type: "integer", description: "When, in milliseconds since 1970"},
+            problem: %{type: ["string", "null"], description: "Why no device's plans could be read, if none could"},
+            providers: %{
+              type: "array",
+              description: "Each plan, by provider then account, the one in use first",
+              items: %{
+                type: "object",
+                properties: %{
+                  id: %{type: "string", enum: @order},
+                  title: %{type: "string"},
+                  account: %{type: ["string", "null"]},
+                  active: %{type: "boolean", description: "Whether it's the account in use"},
+                  disabled: %{type: "boolean"},
+                  alarm: %{
+                    type: ["object", "null"],
+                    description: "Why it needs looking at: out now, or running out before it resets",
+                    properties: %{tone: %{type: "string", enum: ["danger", "warn"]}, text: %{type: "string"}}
+                  },
+                  plan: %{type: ["string", "null"]},
+                  machines: %{type: "array", items: %{type: "string"}, description: "Where it's signed in"},
+                  updated_ago: %{type: "string", description: "How long ago it was read, like 3 min ago"},
+                  outdated: %{type: "boolean", description: "Whether that's more than 5 minutes"},
+                  note: %{type: ["string", "null"]},
+                  session: @window,
+                  weekly: @window,
+                  monthly: %{anyOf: [@window, %{type: "null"}]},
+                  models: %{
+                    type: "array",
+                    description: "Per-model windows, where the plan has them",
+                    items: %{
+                      type: "object",
+                      properties: %{
+                        name: %{type: "string"},
+                        used: @percent,
+                        left: @percent,
+                        countdown: %{type: ["string", "null"], description: "When it resets, like in 2h 5m"}
+                      }
+                    }
+                  },
+                  extra: %{
+                    type: ["object", "null"],
+                    description: "Extra usage this month, in US dollars",
+                    properties: %{used: %{type: "number"}, limit: %{type: "number"}}
+                  },
+                  steer: %{type: "string", description: "Which pool to spend, from Claude's per-model windows"}
+                },
+                required: ["id", "title", "active", "disabled", "machines", "updated_ago", "outdated", "session", "weekly", "models", "steer"]
+              }
+            }
+          },
+          required: ["at", "problem", "providers"]
         }
       }
     ]
@@ -91,23 +155,7 @@ defmodule AIUsage do
 
     problem = if all == [] and response, do: response[:problem]
 
-    if inputs["format"] == "json" do
-      %{at: now, problem: problem, providers: Enum.map(all, &json(&1, now))}
-    else
-      cond do
-        problem ->
-          "Couldn't read your devices' AI plans: #{problem}"
-
-        all == [] ->
-          "No AI sign-ins on your devices."
-
-        true ->
-          ids
-          |> Enum.map(fn id -> Enum.filter(all, &(&1["provider"] == id)) end)
-          |> Enum.reject(&(&1 == []))
-          |> Enum.map_join("\n\n", &section(&1, now))
-      end
-    end
+    %{at: now, problem: problem, providers: Enum.map(all, &json(&1, now))}
   end
 
   # Every machine's reading, by its name: `%{answers: %{name => [reading] | %{"error" => why}}}`, or `%{problem:
@@ -399,7 +447,6 @@ defmodule AIUsage do
     do: if(n == trunc(n), do: Integer.to_string(trunc(n)), else: Float.to_string(Float.round(n, 1)))
 
   defp fmt(n), do: to_string(n)
-  defp left(used), do: fmt(100 - used)
 
   # A local time, as the server's clock has it.
   defp local(ms), do: :calendar.system_time_to_local_time(ms, :millisecond)
@@ -456,32 +503,6 @@ defmodule AIUsage do
     end
   end
 
-  # What a pace adds to a window's line: only a deficit or running out is news.
-  defp pace_news(nil), do: nil
-
-  defp pace_news(pace) do
-    [head, _, tail] = String.split(pace["summary"], " | ")
-
-    if pace["will_last"] != false and not String.contains?(head, "deficit") do
-      nil
-    else
-      ran_out = if tail =~ ~r/Projected|Runs out/, do: lower_first(tail)
-      Enum.join(Enum.reject([String.downcase(head), ran_out], &is_nil/1), ", ")
-    end
-  end
-
-  defp lower_first(<<first::utf8, rest::binary>>), do: String.downcase(<<first::utf8>>) <> rest
-
-  # One line for a window: "Weekly 35% left, 37% in deficit, runs out in 1d 1h, resets Sun at 11:59 PM".
-  defp window_text(_label, nil, _resets, _pace, _now), do: nil
-
-  defp window_text(label, used, resets, pace, now),
-    do:
-      Enum.join(
-        Enum.reject(["#{label} #{left(used)}% left", pace_news(pace), "resets #{resets(resets, now)}"], &is_nil/1),
-        ", "
-      )
-
   # Why a plan needs looking at: out now, or running out before it resets.
   defp alarm(p, now) do
     windows = [
@@ -501,44 +522,6 @@ defmodule AIUsage do
           end
         end
       end)
-  end
-
-  defp section(reads, now) do
-    [p | others] = reads
-    title = @providers[p["provider"]].title
-    account = if p["account"] != "", do: p["account"] <> if(others != [] and p["active"], do: ", in use", else: "")
-    on = if p["machines"] != [], do: "on " <> Enum.join(p["machines"], ", ")
-    head = [title, account, p["plan"], on] |> Enum.reject(&(&1 in [nil, ""])) |> Enum.join(" · ")
-    steered = steer(p["models"])
-
-    other =
-      for o <- others do
-        state =
-          cond do
-            o["disabled"] -> "not used"
-            o["weekly_used"] == nil -> nil
-            o["weekly_used"] >= 100 -> "out, back #{resets(o["weekly_resets"], now)}"
-            true -> "#{left(o["weekly_used"])}% weekly left"
-          end
-
-        [o["account"], state, o["note"], now - o["at"] > @fresh && "read #{ago(o["at"], now)}"]
-        |> Enum.reject(&(&1 in [nil, false, ""]))
-        |> Enum.join(", ")
-      end
-
-    [
-      head,
-      window_text("Session", p["session_used"], p["session_resets"], p["pace"]["session"], now),
-      window_text("Weekly", p["weekly_used"], p["weekly_resets"], p["pace"]["weekly"], now),
-      window_text("Monthly", p["monthly_used"], p["monthly_resets"], nil, now),
-      p["extra"] && "Extra usage $#{p["extra"]["used"]} of $#{p["extra"]["limit"]} this month",
-      if(steered != "" and not String.ends_with?(steered, "any model fine"), do: steered),
-      p["note"],
-      if(now - p["at"] > @fresh, do: "read #{ago(p["at"], now)}"),
-      if(other != [], do: "Other accounts: " <> Enum.join(other, "; "))
-    ]
-    |> Enum.reject(&(&1 in [nil, false]))
-    |> Enum.join("\n")
   end
 
   defp meter(used, resets, pace, now) do

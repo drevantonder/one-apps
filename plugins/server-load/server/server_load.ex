@@ -6,8 +6,12 @@ defmodule ServerLoad do
   @behaviour OneCore.Plugin
   alias ServerLoad.Meter
 
-  @gb 1_000_000_000
-  @gib 1_073_741_824
+  @space %{
+    type: ["object", "null"],
+    properties: %{used: %{type: "integer", description: "In bytes"}, total: %{type: "integer", description: "In bytes"}},
+    required: ["used", "total"]
+  }
+  @busy %{type: "array", items: %{type: "integer"}, description: "Percent busy every 5 seconds over the last two minutes, oldest first"}
 
   @impl true
   def apps, do: [%{name: "Device Activity", page: "client/index.html", icon: "client/icon.svg"}]
@@ -22,29 +26,59 @@ defmodule ServerLoad do
         name: "now",
         read_only: true,
         description:
-          ~s[Every device that's measured, on or not, and how busy each is now: memory, CPU, GPU and disk space, like "23 GB of 30 GB (76%)". Containers a device hosts follow it, with host naming it. Use it to pick a device with room for a desktop, a model or a build.],
+          "Every device that's measured, on or not, and how busy each is now: its memory, CPU, GPU and disk space, and the containers it hosts. Use it to pick a device or server with room for a desktop, a model or a build.",
         inputs: %{
           type: "object",
           properties: %{
-            server: %{type: "string", description: "only the device with this server key; default every device"},
-            history: %{
-              type: "boolean",
-              description:
-                "also each device's CPU and GPU, percent busy every 5 seconds over the last two minutes, oldest first"
-            },
-            format: %{
-              type: "string",
-              enum: ["text", "json"],
-              description: "json: every figure as a number, with each device's server key"
-            }
+            server: %{type: "string", description: "only the device with this server key; default every device"}
           }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            devices: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  server: %{type: "string", description: "Its server key"},
+                  name: %{type: ["string", "null"]},
+                  problem: %{type: "string", description: "Why it isn't measured now: off, or its meter failed"},
+                  seen: %{type: "integer", description: "When one that's off was last seen, in milliseconds since 1970"},
+                  os: %{type: "string", description: "linux or macos"},
+                  processors: %{type: "integer"},
+                  load: %{type: "array", items: %{type: "number"}, description: "Load average over 1, 5 and 15 minutes"},
+                  since: %{type: "integer", description: "When it started, in seconds since 1970"},
+                  memory: @space,
+                  disk: @space,
+                  cpu: @busy,
+                  gpu: %{@busy | description: "The same of its GPU, if it has one"},
+                  containers: %{
+                    type: "array",
+                    items: %{
+                      type: "object",
+                      properties: %{
+                        name: %{type: "string"},
+                        kind: %{type: "string"},
+                        memory: Map.put(@space, :description, "A total of 0 has no limit of its own")
+                      },
+                      required: ["name", "kind", "memory"]
+                    }
+                  }
+                },
+                required: ["server", "name"]
+              }
+            }
+          },
+          required: ["devices"]
         }
       },
       %{
         name: "widget",
         read_only: true,
         description: "Device Activity's widget, as a layout: how busy each device is, at a glance",
-        inputs: %{type: "object", properties: %{size: %{type: "string", enum: ["2x2", "4x2", "4x4"]}}}
+        inputs: %{type: "object", properties: %{size: %{type: "string", enum: ["2x2", "4x2", "4x4"]}}},
+        outputs: %{type: "object", properties: %{part: %{type: "string"}}, required: ["part"]}
       }
     ]
   end
@@ -55,11 +89,8 @@ defmodule ServerLoad do
   def call("now", inputs, call) do
     devices = devices(call, inputs["server"])
 
-    cond do
-      devices == [] -> raise "No device is measured yet. `install_service` runs ServerLoad.Meter on one."
-      inputs["format"] == "json" -> devices
-      true -> %{devices: Enum.flat_map(devices, &entry(&1, inputs["history"]))}
-    end
+    if devices == [], do: raise("No device is measured yet. `install_service` runs ServerLoad.Meter on one.")
+    %{devices: devices}
   end
 
   # Every device measured, or the one with the server key `only`: what its meter says now, or for one that's off,
@@ -89,51 +120,4 @@ defmodule ServerLoad do
 
     Map.merge(measured, %{"server" => server, "name" => OneCore.Service.name(server)})
   end
-
-  # A device in words, then each container it hosts.
-  defp entry(%{"problem" => _} = device, _history) do
-    seen = device["seen"] && DateTime.to_iso8601(DateTime.from_unix!(device["seen"], :millisecond))
-    [put(%{name: device["name"], online: false}, :seen, seen)]
-  end
-
-  defp entry(device, history) do
-    os = %{"linux" => "Linux", "macos" => "macOS"}[device["os"]] || device["os"]
-
-    entry =
-      %{name: device["name"], os: os, online: true}
-      |> put(:memory, device["memory"] && memory(device["memory"]))
-      |> put(:cpu, percent(List.last(device["cpu"])))
-      |> put(:gpu, percent(List.last(device["gpu"])))
-      |> put(:disk, device["disk"] && disk(device["disk"]))
-      |> put(:cpu_history, history && device["cpu"])
-      |> put(:gpu_history, history && device["gpu"] != [] && device["gpu"])
-
-    containers =
-      for container <- device["containers"] do
-        put(
-          %{name: container["name"], kind: container["kind"], host: device["name"]},
-          :memory,
-          container["memory"] && "#{size(container["memory"]["used"], @gib)} in use"
-        )
-      end
-
-    [entry | containers]
-  end
-
-  defp put(entry, _key, value) when value in [nil, false], do: entry
-  defp put(entry, key, value), do: Map.put(entry, key, value)
-
-  defp percent(nil), do: nil
-  defp percent(busy), do: "#{busy}%"
-
-  # Memory counts in 2^30s, as macOS and Activity Monitor do, disks in 10^9s.
-  defp memory(%{"used" => used, "total" => total}),
-    do: "#{size(used, @gib)} of #{size(total, @gib)} (#{round(used * 100 / total)}%)"
-
-  defp disk(%{"used" => used, "total" => total}),
-    do: "#{size(total - used, @gb)} free of #{size(total, @gb)} (#{round(used * 100 / total)}% used)"
-
-  defp size(bytes, g) when bytes >= 10 * g, do: "#{round(bytes / g)} GB"
-  defp size(bytes, g) when bytes >= g, do: "#{Float.round(bytes / g, 1)} GB"
-  defp size(bytes, g), do: "#{round(bytes / (g / 1000))} MB"
 end
