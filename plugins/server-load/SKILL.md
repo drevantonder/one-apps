@@ -1,14 +1,14 @@
 ---
 name: server-load
-description: Read before giving a machine heavy work, to pick the one with most to spare, or when asked how busy a machine is.
+description: Read when the user asks how busy their devices are, or before giving a device heavy work, to pick one with room for a desktop, a model or a build.
 ---
 
-Server Load says how busy each machine is: how many processors it has, its load over the last 1, 5 and 15 minutes,
-its memory and disk in use (`used` of `total` bytes), how busy its CPU and GPU were every 5 seconds over the last
-two minutes (percent, oldest first), and the containers it hosts. A load as high as the number of processors is a
-machine with no time to spare, so use `now` before giving a machine heavy work, to pick the one with most to spare.
-A machine that couldn't be asked, such as one that's off, has a `problem` instead.
+Server Load says how busy each device is; people see it as the app Device Activity and its widget. `now` lists
+every device that's measured, on or not, with its memory (as Activity Monitor counts it on a Mac), CPU, GPU and
+disk, and the containers each hosts after it. Use it before giving a device heavy work, to pick the one with most to
+spare; `history` adds each device's last two minutes of CPU and GPU, and `format: json` gives every figure as a
+number with each device's server key. A device that's off says when it was last seen.
 
-Each machine is measured by Server Load's service `ServerLoad.Meter`, which brings a small program written in Rust
-and builds it on the machine, so the machine needs `rustc`. `services` says which servers run it, and
-`install_service` runs it on one.
+Each device is measured by Server Load's service `ServerLoad.Meter`, which brings a small program written in Rust
+and builds it on the device, so the device needs `rustc`. `services` says which servers run it, and
+`install_service --plugin server-load --service ServerLoad.Meter --server <key>` runs it on one.

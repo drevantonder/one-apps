@@ -1,4 +1,4 @@
-defmodule DeviceActivity.Widget do
+defmodule ServerLoad.Widget do
   @moduledoc """
   Device Activity's widget: a header of column labels, then a row for each device, with its icon and its system's
   logo, its name, a ring for its memory, lines for its CPU and GPU and a bar for its disk, in columns that line up.
@@ -26,7 +26,7 @@ defmodule DeviceActivity.Widget do
   # The widths of the columns, shared by the header and every row so they line up.
   @columns %{ram: 30, cpu: 32, gpu: 32, disk: 30, gap: 6, icon: 22, ring: 18, spark: 16}
 
-  @doc "The layout for `devices`, as `server-load` measures them, at `size`."
+  @doc "The layout for `devices`, as `now` gives them, at `size`."
   def layout([], _size), do: %{part: "text", text: "No device is measured yet.", size: "sm", tone: "muted"}
   def layout(devices, "2x2"), do: column(spread([compact_header() | Enum.map(Enum.take(devices, 5), &compact/1)]))
 

@@ -97,7 +97,7 @@ function Device(props) {
 }
 
 function App() {
-  const devices = createMemo(() => call("device-activity_list", { format: "json" }).then(JSON.parse))
+  const devices = createMemo(() => call("server-load_now", { format: "json" }).then(JSON.parse))
   changed(() => refresh(devices))
   onSettled(() => {
     const again = () => document.visibilityState === "visible" && refresh(devices)
