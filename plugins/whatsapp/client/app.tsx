@@ -6,16 +6,31 @@ import { render } from "@solidjs/web"
 import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, List, Problem, Row, Screen, Section, Select, Skeleton, toast } from "ui"
 import "./app.css"
 
-const ask = (tool, inputs = {}) => call(`whatsapp_${tool}`, inputs).then(JSON.parse)
-const plain = (error) => error.message.replace(/^./, (c) => c.toUpperCase())
+/** A linked account, as `whatsapp_accounts` answers it. */
+interface Account {
+  account: string
+  device: string
+  ok: boolean
+  why: string
+}
+
+/** The codes a phone links by, while it links: the QR code to scan, and one to type for a number. */
+interface Codes {
+  qr?: string
+  code?: string
+  error?: string
+}
+
+const ask = <T,>(tool: string, inputs = {}): Promise<T> => call(`whatsapp_${tool}`, inputs).then(JSON.parse)
+const plain = (error: unknown) => (error as Error).message.replace(/^./, (c) => c.toUpperCase())
 
 /// While a phone links: the QR code to scan, which WhatsApp renews every 20 seconds, asked again every 2. It's done
 /// once there's no code any more: linked, or run out.
-function Pairing(props) {
+function Pairing(props: { device?: string; first: Codes; done: (linked: boolean) => void }) {
   const [codes, setCodes] = createSignal(props.first)
-  const [why, setWhy] = createSignal()
+  const [why, setWhy] = createSignal<string>()
   const timer = setInterval(async () => {
-    const now = await ask("pairing", props.device ? { device: props.device } : {}).catch((error) => ({ error: plain(error) }))
+    const now = await ask<Codes>("pairing", props.device ? { device: props.device } : {}).catch((error): Codes => ({ error: plain(error) }))
     if (now.error) setWhy(now.error)
     if (!now.qr) {
       clearInterval(timer)
@@ -41,32 +56,32 @@ function Pairing(props) {
   )
 }
 
-function Link(props) {
+function Link(props: { devices: string[]; again: () => void }) {
   const devices = createListCollection({ items: props.devices.map((d) => ({ value: d, label: d })) })
-  const [linking, setLinking] = createSignal()
+  const [linking, setLinking] = createSignal<{ device: string; first: Codes }>()
   const [busy, setBusy] = createSignal(false)
-  const start = async (event) => {
+  const start = async (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const device = form.get("device") || props.devices[0]
+    const device = (form.get("device") as string | null) || props.devices[0]
     const phone = String(form.get("phone") || "").trim()
     setBusy(true)
     try {
       await call("whatsapp_sign_in", { device, ...(phone ? { phone } : {}) })
-      setLinking({ device, first: await ask("pairing", { device }) })
+      setLinking({ device, first: await ask<Codes>("pairing", { device }) })
     } catch (error) {
       toast(plain(error))
     } finally {
       setBusy(false)
     }
   }
-  const done = (linked) => {
+  const done = (linked: boolean) => {
     setLinking()
     if (!linked) toast("The codes ran out before the phone linked.")
     props.again()
   }
   return (
-    <Show when={!linking()} fallback={<Pairing {...linking()} done={done} />}>
+    <Show when={!linking()} fallback={<Pairing {...linking()!} done={done} />}>
       <Section heading="Add Account">
         <form class="form" onSubmit={start}>
           <Show when={props.devices.length > 1}>
@@ -85,7 +100,7 @@ function Link(props) {
 }
 
 /// One account, opened from the Accounts folder: what's wrong with it, if anything, where it's linked, and Sign Out.
-function Account(props) {
+function AccountView(props: { account: Account }) {
   const signOut = async () => {
     const sure = await confirm({
       heading: `Sign out of ${props.account.account}?`,
@@ -121,10 +136,10 @@ function Account(props) {
 /// The account after the page's `#`, if it was opened for one; else linking another.
 const named = decodeURIComponent(location.hash.slice(1))
 
-function WhatsApp(props) {
+function WhatsApp(props: { state: { accounts: Account[]; devices: string[] }; again: () => void }) {
   const account = () => props.state.accounts.find((a) => a.account === named)
   return (
-    <Show when={!named} fallback={<Show when={account()} fallback={<Empty>This account isn't linked any more.</Empty>}><Account account={account()} /></Show>}>
+    <Show when={!named} fallback={<Show when={account()} fallback={<Empty>This account isn't linked any more.</Empty>}><AccountView account={account()!} /></Show>}>
       <Show
         when={props.state.devices.length}
         fallback={<Problem warn heading="WhatsApp isn't on any of your devices yet" text="Ask your agent to install it on a computer of yours that stays on." />}
@@ -139,13 +154,13 @@ function WhatsApp(props) {
 
 function App() {
   const state = createMemo(async () => {
-    const [accounts, devices] = await Promise.all([ask("accounts"), ask("devices")])
+    const [accounts, devices] = await Promise.all([ask<Account[]>("accounts"), ask<string[]>("devices")])
     return { accounts, devices }
   })
   changed(() => refresh(state))
   return (
     <Screen heading={named || "WhatsApp"} back onBack={leave}>
-      <Errored fallback={(error, reset) => <Problem heading="Couldn't reach WhatsApp" text={error().message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
+      <Errored fallback={(error, reset) => <Problem heading="Couldn't reach WhatsApp" text={(error() as Error).message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
         <Loading fallback={<Skeleton rows={3} />}>
           <WhatsApp state={state()} again={() => refresh(state)} />
         </Loading>
