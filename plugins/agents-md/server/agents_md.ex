@@ -114,13 +114,18 @@ defmodule AgentsMd do
   end
 
   @doc """
-  AGENTS.md and every skill's files, as the service writes them: `%{"text" => text, "skills" => %{name => files}}`,
-  each skill's files by their paths.
+  AGENTS.md and every skill's files, as the service writes them: `%{"text" => text, "skills" => %{name => files},
+  "revisions" => texts}`, each skill's files by their paths, and every text AGENTS.md has had.
   """
   def files(call) do
     database = OneCore.Call.plugin(call, "database")
-    {text, skills} = database.transaction(call, @schema, &state(records({database, &1})))
-    %{"text" => text, "skills" => skills}
+
+    database.transaction(call, @schema, fn db ->
+      records = records({database, db})
+      {text, skills} = state(records)
+      revisions = for %{kind: "agentsmd", data: data} <- records, do: to_string(data["text"])
+      %{"text" => text, "skills" => skills, "revisions" => revisions}
+    end)
   end
 
   @doc "Whether a skill's file's path leads out of its folder."
