@@ -18,7 +18,7 @@ Workers AI, or at any host that speaks OpenAI's chat completions.
 - `models` lists every model they can use, by where it runs (each machine of theirs, each hosted endpoint), with
   whether that place is up and what each model does: `vision` takes images, `structured` keeps to a schema
   (`null` when the endpoint doesn't say). It also lists what each job tries, and whose that list is.
-- `set` sets the models a job tries, in order. It's the person's own; for the network (`ONE_FOR=network`) it's
+- `set` sets the models a job tries, in order. It's the person's own; for the network (`ONE_SUBJECT=network`) it's
   everyone's, which theirs overrides. Set what they ask for, and say what you set.
 
 Hosted models cost money per use, so they're used only once their person set them up and named them in a job,
