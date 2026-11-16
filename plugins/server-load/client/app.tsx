@@ -1,19 +1,39 @@
 // Device Activity: each device with its memory, CPU, GPU and disk, and the containers it hosts below. The devices
 // fill the room: more columns where there's more of it. Asked again every 5 seconds while it can be seen.
 import { createMemo, Errored, For, Loading, onSettled, refresh, Show } from "solid-js"
-import { render } from "@solidjs/web"
+import { render, type JSX } from "@solidjs/web"
 import { Button, call, changed, Empty, leave, List, Problem, Row, Screen, Skeleton } from "ui"
 import "./app.css"
+
+/** Space in bytes: how much is used of how much. */
+interface Space {
+  used: number
+  total: number
+}
+
+/** A device, as `server-load_now` answers it: its memory, CPU and GPU every 5 seconds, disk and containers. */
+interface Device {
+  server: string
+  name: string
+  os: string
+  problem?: string
+  seen?: number
+  memory?: Space
+  cpu: number[]
+  gpu: number[]
+  disk?: Space
+  containers: { name: string; kind?: string; memory?: Space }[]
+}
 
 const GB = 1e9
 const GiB = 2 ** 30
 // Bytes as GB: memory counts them in 2^30s, as macOS and Activity Monitor do, disks in 10^9s.
-const size = (b, g = GB) => (b >= 10 * g ? `${Math.round(b / g)} GB` : b >= g ? `${(b / g).toFixed(1)} GB` : `${Math.round(b / (g / 1000))} MB`)
-const share = (space) => (space?.total ? space.used / space.total : null)
-const OS = { linux: "Linux", macos: "macOS" }
+const size = (b: number, g = GB) => (b >= 10 * g ? `${Math.round(b / g)} GB` : b >= g ? `${(b / g).toFixed(1)} GB` : `${Math.round(b / (g / 1000))} MB`)
+const share = (space?: Space) => (space?.total ? space.used / space.total : null)
+const OS: Record<string, string> = { linux: "Linux", macos: "macOS" }
 const ago = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
 /// How long ago `at` was, in the largest unit that's whole: "Seen 2 minutes ago".
-function seen(at) {
+function seen(at: number) {
   const minutes = Math.round((at - Date.now()) / 60_000)
   if (minutes > -60) return `Seen ${ago.format(Math.min(minutes, -1), "minute")}`
   if (minutes > -48 * 60) return `Seen ${ago.format(Math.round(minutes / 60), "hour")}`
@@ -21,7 +41,7 @@ function seen(at) {
 }
 
 /// A bar of how full something is: grey, and the warning colour once it's nearly full, which needs someone.
-function Bar(props) {
+function Bar(props: { share: number; label: string }) {
   return (
     <div class={["bar", { full: props.share >= 0.85 }]} role="meter" aria-valuenow={Math.round(props.share * 100)} aria-valuemin="0" aria-valuemax="100" aria-label={props.label}>
       <div style={{ "inline-size": `${props.share * 100}%` }} />
@@ -30,7 +50,7 @@ function Bar(props) {
 }
 
 /// How busy something was every 5 seconds over two minutes, oldest first, as a line.
-function Line(props) {
+function Line(props: { values: number[]; label: string }) {
   const points = () => props.values.map((value, i) => `${(i * 100) / Math.max(props.values.length - 1, 1)},${100 - value}`).join(" ")
   return (
     <svg class="line" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={props.label}>
@@ -39,7 +59,7 @@ function Line(props) {
   )
 }
 
-function Stat(props) {
+function Stat(props: { label: string; value: string; children?: JSX.Element }) {
   return (
     <div class="stat">
       <div class="figures">
@@ -51,21 +71,21 @@ function Stat(props) {
   )
 }
 
-function Device(props) {
+function DeviceView(props: { device: Device }) {
   const d = () => props.device
   return (
     <section class="device">
       <div class="title">
         <h2>{d().name}</h2>
-        <Show when={!d().problem} fallback={<Show when={d().seen}><span class="about">{seen(d().seen)}</span></Show>}>
+        <Show when={!d().problem} fallback={<Show when={d().seen}><span class="about">{seen(d().seen!)}</span></Show>}>
           <span class="about">Online · {OS[d().os] ?? d().os}</span>
         </Show>
       </div>
       <Show when={!d().problem}>
         <div class="stats">
           <Show when={d().memory}>
-            <Stat label="Memory" value={`${size(d().memory.used, GiB)} of ${size(d().memory.total, GiB)}`}>
-              <Bar share={share(d().memory)} label="Memory" />
+            <Stat label="Memory" value={`${size(d().memory!.used, GiB)} of ${size(d().memory!.total, GiB)}`}>
+              <Bar share={share(d().memory)!} label="Memory" />
             </Stat>
           </Show>
           <Show when={d().cpu.length}>
@@ -79,15 +99,15 @@ function Device(props) {
             </Stat>
           </Show>
           <Show when={d().disk}>
-            <Stat label="Disk" value={`${size(d().disk.total - d().disk.used)} free`}>
-              <Bar share={share(d().disk)} label="Disk" />
+            <Stat label="Disk" value={`${size(d().disk!.total - d().disk!.used)} free`}>
+              <Bar share={share(d().disk)!} label="Disk" />
             </Stat>
           </Show>
         </div>
         <Show when={d().containers.length}>
           <List>
             <For each={d().containers} keyed={(c) => c.name}>
-              {(c) => <Row heading={c().name} text={c().kind === "podman" ? "Podman" : "Container"} end={c().memory ? size(c().memory.used, GiB) : undefined} />}
+              {(c) => <Row heading={c().name} text={c().kind === "podman" ? "Podman" : "Container"} end={c().memory ? size(c().memory!.used, GiB) : undefined} />}
             </For>
           </List>
         </Show>
@@ -97,7 +117,7 @@ function Device(props) {
 }
 
 function App() {
-  const devices = createMemo(() => call("server-load_now", { format: "json" }).then(JSON.parse))
+  const devices = createMemo(() => call("server-load_now", { format: "json" }).then((text): Device[] => JSON.parse(text)))
   changed(() => refresh(devices))
   onSettled(() => {
     const again = () => document.visibilityState === "visible" && refresh(devices)
@@ -107,12 +127,12 @@ function App() {
   })
   return (
     <Screen heading="Device Activity" back onBack={leave}>
-      <Errored fallback={(error, reset) => <Problem heading="Couldn't measure your devices" text={error().message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
+      <Errored fallback={(error, reset) => <Problem heading="Couldn't measure your devices" text={(error() as Error).message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
         <Loading fallback={<Skeleton rows={3} />}>
           <Show when={devices().length} fallback={<Empty>No device is measured yet</Empty>}>
             <div class="devices">
               <For each={devices()} keyed={(d) => d.server}>
-                {(d) => <Device device={d()} />}
+                {(d) => <DeviceView device={d()} />}
               </For>
             </div>
           </Show>
