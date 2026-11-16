@@ -66,7 +66,7 @@ defmodule ServerLoad.Meter do
 
     case System.cmd(rustc, building, cd: folder, stderr_to_stdout: true) do
       {_, 0} -> File.rename!(built <> ".building", built)
-      {said, _} -> raise "The meter didn't build:\n" <> said
+      {output, _} -> raise "The meter didn't build:\n" <> output
     end
   end
 end

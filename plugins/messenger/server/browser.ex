@@ -44,8 +44,8 @@ defmodule Messenger.Browser do
     folder = OneCore.Service.folder(self(), "server/browser")
 
     if not File.dir?(Path.join(folder, "node_modules")) do
-      {said, status} = System.cmd(state.bun, ["install"], cd: folder, stderr_to_stdout: true)
-      if status != 0, do: raise("Messenger's browser didn't install:\n" <> said)
+      {output, status} = System.cmd(state.bun, ["install"], cd: folder, stderr_to_stdout: true)
+      if status != 0, do: raise("Messenger's browser didn't install:\n" <> output)
     end
 
     port =

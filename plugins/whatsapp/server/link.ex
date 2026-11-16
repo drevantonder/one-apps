@@ -70,7 +70,7 @@ defmodule WhatsApp.Link do
     if not File.exists?(built) do
       case System.cmd("go", ["build", "-o", built <> ".building", "."], cd: folder, stderr_to_stdout: true) do
         {_, 0} -> File.rename!(built <> ".building", built)
-        {said, _} -> raise "The WhatsApp link didn't build:\n" <> said
+        {output, _} -> raise "The WhatsApp link didn't build:\n" <> output
       end
     end
 
@@ -206,18 +206,18 @@ defmodule WhatsApp.Link do
   # What the program says: an answer to what it was asked, or something it heard.
   defp handle_event(state, port, %{"id" => id} = answer) do
     {from, state} = pop_in(state.ports[port].waiting[id])
-    said = if Map.has_key?(answer, "error"), do: {:error, answer["error"]}, else: {:ok, answer["ok"]}
+    result = if Map.has_key?(answer, "error"), do: {:error, answer["error"]}, else: {:ok, answer["ok"]}
 
     case from do
       {:closing, _from, then} ->
         link = state.ports[port]
-        if then == :keep and match?({:ok, _}, said), do: keep(link, elem(said, 1))
-        reply(from, said)
+        if then == :keep and match?({:ok, _}, result), do: keep(link, elem(result, 1))
+        reply(from, result)
         close(state, port)
 
       from ->
-        reply(from, said)
-        if state.pairing == port and match?({:ok, _}, said), do: shows(state, port, elem(said, 1)), else: state
+        reply(from, result)
+        if state.pairing == port and match?({:ok, _}, result), do: shows(state, port, elem(result, 1)), else: state
     end
   end
 

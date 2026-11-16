@@ -70,9 +70,9 @@ defmodule AiGateway.Local do
   defp models("Ollama", port) do
     with %{"models" => models} <- get(port, "/api/tags") do
       for %{"name" => name} <- models,
-          said = post(port, "/api/show", %{model: name}),
-          "completion" in (said["capabilities"] || []),
-          do: %{"name" => name, "vision" => "vision" in said["capabilities"]}
+          response = post(port, "/api/show", %{model: name}),
+          "completion" in (response["capabilities"] || []),
+          do: %{"name" => name, "vision" => "vision" in response["capabilities"]}
     end
   end
 

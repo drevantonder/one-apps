@@ -41,7 +41,7 @@ defmodule AIUsage.Reader do
     |> Enum.zip(accounts)
     |> Enum.map(fn
       {{:ok, read}, _account} -> read
-      {{:exit, _}, account} -> Map.put(said(account), "error", "#{title(account.provider)} didn't answer in time")
+      {{:exit, _}, account} -> Map.put(base(account), "error", "#{title(account.provider)} didn't answer in time")
     end)
   end
 
@@ -60,7 +60,7 @@ defmodule AIUsage.Reader do
   def code_change(_old, held, _extra), do: {:ok, held || %{}}
 
   # What's said of an account, without its token.
-  defp said(a) do
+  defp base(a) do
     label =
       cond do
         a.email == "" -> ""
@@ -83,23 +83,23 @@ defmodule AIUsage.Reader do
 
     cond do
       a.disabled ->
-        said(a)
+        base(a)
 
       Map.get(held, key, 0) > now() ->
-        Map.put(said(a), "error", "rate limited by #{title(a.provider)}")
+        Map.put(base(a), "error", "rate limited by #{title(a.provider)}")
 
       a.expires_at && a.expires_at < now() ->
-        Map.put(said(a), "error", "its sign-in ran out #{ago(a.expires_at)} ago; it renews when #{a.tool} is next used")
+        Map.put(base(a), "error", "its sign-in ran out #{ago(a.expires_at)} ago; it renews when #{a.tool} is next used")
 
       true ->
         try do
-          Map.merge(said(a), fetch(a))
+          Map.merge(base(a), fetch(a))
         rescue
-          error in RuntimeError -> Map.put(said(a), "error", error.message)
+          error in RuntimeError -> Map.put(base(a), "error", error.message)
         catch
           {:rate_limited, seconds} ->
             if seconds, do: GenServer.cast(service, {:hold, key, now() + seconds * 1000})
-            Map.put(said(a), "error", "rate limited by #{title(a.provider)}")
+            Map.put(base(a), "error", "rate limited by #{title(a.provider)}")
         end
     end
   end

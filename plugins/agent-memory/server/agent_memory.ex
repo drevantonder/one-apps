@@ -395,18 +395,18 @@ defmodule AgentMemory do
   end
 
   # `<lo>-<hi>` as wake and the nap prompts give it: inclusive at both ends, and a real block, an aligned power of two.
-  defp block!(said) do
-    case Regex.run(~r/^(\d+)-(\d+)$/, String.trim(said)) do
+  defp block!(id) do
+    case Regex.run(~r/^(\d+)-(\d+)$/, String.trim(id)) do
       [_, lo, hi] ->
         {lo, hi} = {String.to_integer(lo), String.to_integer(hi) + 1}
         n = hi - lo
 
         if n < 2 or Bitwise.band(n, n - 1) != 0 or rem(lo, n) != 0,
-          do: raise("#{said} is not a block. Copy an id wake gives, like 16-31."),
+          do: raise("#{id} is not a block. Copy an id wake gives, like 16-31."),
           else: {lo, hi}
 
       nil ->
-        raise "'#{said}' is not a block id. Copy it from the prompt, like 16-31."
+        raise "'#{id}' is not a block id. Copy it from the prompt, like 16-31."
     end
   end
 

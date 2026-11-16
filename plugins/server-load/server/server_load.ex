@@ -58,7 +58,7 @@ defmodule ServerLoad do
     cond do
       devices == [] -> raise "No device is measured yet. `install_service` runs ServerLoad.Meter on one."
       inputs["format"] == "json" -> devices
-      true -> %{devices: Enum.flat_map(devices, &said(&1, inputs["history"]))}
+      true -> %{devices: Enum.flat_map(devices, &entry(&1, inputs["history"]))}
     end
   end
 
@@ -91,15 +91,15 @@ defmodule ServerLoad do
   end
 
   # A device in words, then each container it hosts.
-  defp said(%{"problem" => _} = device, _history) do
+  defp entry(%{"problem" => _} = device, _history) do
     seen = device["seen"] && DateTime.to_iso8601(DateTime.from_unix!(device["seen"], :millisecond))
     [put(%{name: device["name"], online: false}, :seen, seen)]
   end
 
-  defp said(device, history) do
+  defp entry(device, history) do
     os = %{"linux" => "Linux", "macos" => "macOS"}[device["os"]] || device["os"]
 
-    said =
+    entry =
       %{name: device["name"], os: os, online: true}
       |> put(:memory, device["memory"] && memory(device["memory"]))
       |> put(:cpu, percent(List.last(device["cpu"])))
@@ -117,11 +117,11 @@ defmodule ServerLoad do
         )
       end
 
-    [said | containers]
+    [entry | containers]
   end
 
-  defp put(said, _key, value) when value in [nil, false], do: said
-  defp put(said, key, value), do: Map.put(said, key, value)
+  defp put(entry, _key, value) when value in [nil, false], do: entry
+  defp put(entry, key, value), do: Map.put(entry, key, value)
 
   defp percent(nil), do: nil
   defp percent(busy), do: "#{busy}%"

@@ -155,8 +155,8 @@ defmodule AgentsMd.Writer do
   end
 
   # Says each problem once, not every minute.
-  defp log_once(state, said, level \\ :warning) do
-    if not MapSet.member?(state.logged, said), do: Logger.log(level, "AGENTS.md: " <> said)
-    %{state | logged: MapSet.put(state.logged, said)}
+  defp log_once(state, message, level \\ :warning) do
+    if not MapSet.member?(state.logged, message), do: Logger.log(level, "AGENTS.md: " <> message)
+    %{state | logged: MapSet.put(state.logged, message)}
   end
 end

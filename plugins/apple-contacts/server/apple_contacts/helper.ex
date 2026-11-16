@@ -105,7 +105,7 @@ defmodule AppleContacts.Helper do
   defp run(folder, program, args) do
     case System.cmd(System.find_executable(program), args, cd: folder, stderr_to_stdout: true) do
       {_, 0} -> :ok
-      {said, _} -> raise "Apple Contacts for The One App didn't build: #{program} said\n" <> said
+      {output, _} -> raise "Apple Contacts for The One App didn't build: #{program} said\n" <> output
     end
   end
 end

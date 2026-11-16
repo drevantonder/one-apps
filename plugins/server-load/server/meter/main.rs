@@ -153,8 +153,8 @@ fn run(program: &str, args: &[&str]) -> Option<String> {
 /// What's kept back for the system counts as neither, as Finder and `df` have it.
 fn disk() -> Option<Space> {
     let path = if cfg!(target_os = "macos") { "/System/Volumes/Data" } else { "/" };
-    let said = run("df", &["-Pk", path])?;
-    let fields: Vec<&str> = said.lines().nth(1)?.split_whitespace().collect();
+    let entry = run("df", &["-Pk", path])?;
+    let fields: Vec<&str> = entry.lines().nth(1)?.split_whitespace().collect();
     let capacity = fields.iter().position(|f| f.ends_with('%'))?;
     let kb = |at: usize| -> Option<u64> { fields.get(capacity.checked_sub(at)?)?.parse().ok() };
     let (used, free) = (kb(2)? * 1024, kb(1)? * 1024);
@@ -164,9 +164,9 @@ fn disk() -> Option<Space> {
 /// /proc/meminfo: total, less what's available.
 #[cfg(target_os = "linux")]
 fn memory() -> Option<Space> {
-    let said = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let entry = std::fs::read_to_string("/proc/meminfo").ok()?;
     let kb = |key: &str| -> Option<u64> {
-        said.lines()
+        entry.lines()
             .find_map(|l| l.strip_prefix(key)?.strip_prefix(':')?.trim().strip_suffix("kB")?.trim().parse().ok())
     };
     let (total, available) = (kb("MemTotal")?, kb("MemAvailable")?);
@@ -178,10 +178,10 @@ fn memory() -> Option<Space> {
 #[cfg(target_os = "macos")]
 fn memory() -> Option<Space> {
     let total: u64 = run("/usr/sbin/sysctl", &["-n", "hw.memsize"])?.trim().parse().ok()?;
-    let said = run("/usr/bin/vm_stat", &[])?;
-    let page: u64 = said.lines().next()?.split("page size of ").nth(1)?.split_whitespace().next()?.parse().ok()?;
+    let entry = run("/usr/bin/vm_stat", &[])?;
+    let page: u64 = entry.lines().next()?.split("page size of ").nth(1)?.split_whitespace().next()?.parse().ok()?;
     let pages = |key: &str| -> u64 {
-        said.lines()
+        entry.lines()
             .find_map(|l| l.strip_prefix(key)?.strip_prefix(':')?.trim().trim_end_matches('.').parse().ok())
             .unwrap_or(0)
     };
@@ -194,8 +194,8 @@ fn memory() -> Option<Space> {
 /// iowait irq softirq steal`.
 #[cfg(target_os = "linux")]
 fn cpu_ticks() -> Option<(u64, u64)> {
-    let said = std::fs::read_to_string("/proc/stat").ok()?;
-    let mut fields = said.lines().next()?.split_whitespace();
+    let entry = std::fs::read_to_string("/proc/stat").ok()?;
+    let mut fields = entry.lines().next()?.split_whitespace();
     if fields.next()? != "cpu" {
         return None;
     }
@@ -247,8 +247,8 @@ fn gpu() -> Option<u8> {
 /// Every `"Device Utilization %"=N` in `ioreg -c IOAccelerator`.
 #[cfg(target_os = "macos")]
 fn gpu() -> Option<u8> {
-    let said = run("/usr/sbin/ioreg", &["-r", "-d", "1", "-c", "IOAccelerator"])?;
-    said.split("\"Device Utilization %\"=")
+    let entry = run("/usr/sbin/ioreg", &["-r", "-d", "1", "-c", "IOAccelerator"])?;
+    entry.split("\"Device Utilization %\"=")
         .skip(1)
         .filter_map(|r| r.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok())
         .max()
@@ -296,9 +296,9 @@ fn containers() -> Vec<Container> {
 
 /// A size as podman writes it: `4.295GB`, `29.93MB`, `512kB`, `1.5GiB`, `0B`.
 #[cfg(target_os = "linux")]
-fn size(said: &str) -> Option<u64> {
-    let said = said.trim();
-    let (number, unit) = said.split_at(said.find(|c: char| !(c.is_ascii_digit() || c == '.'))?);
+fn size(entry: &str) -> Option<u64> {
+    let entry = entry.trim();
+    let (number, unit) = entry.split_at(entry.find(|c: char| !(c.is_ascii_digit() || c == '.'))?);
     let scale = match unit.to_ascii_lowercase().as_str() {
         "b" => 1.0,
         "kb" => 1e3,

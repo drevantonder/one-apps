@@ -64,8 +64,8 @@ defmodule StayAwake.Mac do
 
   # pmset's first line names where the power comes from: "Now drawing from 'AC Power'".
   defp status_of(state) do
-    {said, _status} = System.cmd(System.find_executable("pmset"), ["-g", "ps"])
-    plugged_in = String.contains?(hd(String.split(said, "\n")), "AC Power")
+    {output, _status} = System.cmd(System.find_executable("pmset"), ["-g", "ps"])
+    plugged_in = String.contains?(hd(String.split(output, "\n")), "AC Power")
     %{on: not File.exists?(state.off), holding: state.holding != nil, plugged_in: plugged_in}
   end
 end

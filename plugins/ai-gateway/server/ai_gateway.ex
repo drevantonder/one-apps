@@ -126,7 +126,7 @@ defmodule AiGateway do
     Enum.reduce_while(tries, [], fn id, why ->
       case request(call, id, body, inputs["schema"] != nil) do
         {:ok, answer} -> {:halt, answer}
-        {:down, said} -> {:cont, why ++ ["#{id}: #{said}"]}
+        {:down, reason} -> {:cont, why ++ ["#{id}: #{reason}"]}
       end
     end)
     |> case do
@@ -216,7 +216,7 @@ defmodule AiGateway do
         problem in RuntimeError -> {:down, problem.message}
       end
 
-    with %{status: status, body: said} <- sent, do: answered(call, id, item, status, said, json?)
+    with %{status: status, body: body} <- sent, do: answered(call, id, item, status, body, json?)
   end
 
   defp ask_machines(_call, [], _model, _body, _json?), do: {:down, "No machine of yours that's up has it"}
@@ -227,8 +227,8 @@ defmodule AiGateway do
           rescue
             problem in RuntimeError -> %{"down" => problem.message}
           end) do
-      %{"status" => status, "body" => said} ->
-        answered(call, "local/" <> model, Service.name(server), status, said, json?)
+      %{"status" => status, "body" => body} ->
+        answered(call, "local/" <> model, Service.name(server), status, body, json?)
 
       %{"down" => _why} ->
         ask_machines(call, rest, model, body, json?)
@@ -236,8 +236,8 @@ defmodule AiGateway do
   end
 
   # What a model said, as an answer: its text, and that read as JSON when a schema was asked for.
-  defp answered(call, id, runs_on, status, said, json?) when status in 200..299 do
-    case JSON.decode(said) do
+  defp answered(call, id, runs_on, status, body, json?) when status in 200..299 do
+    case JSON.decode(body) do
       {:ok, %{"choices" => [%{"message" => %{"content" => content}} = choice | _]} = answered} ->
         used(call, id, answered["usage"])
         text = text(content)
@@ -260,13 +260,13 @@ defmodule AiGateway do
     end
   end
 
-  defp answered(_call, _id, _runs_on, status, said, _json?) do
+  defp answered(_call, _id, _runs_on, status, body, _json?) do
     why =
-      case JSON.decode(said) do
+      case JSON.decode(body) do
         {:ok, %{"error" => %{"message" => message}}} -> message
         {:ok, %{"error" => message}} when is_binary(message) -> message
         {:ok, %{"errors" => [%{"message" => message} | _]}} -> message
-        _ -> String.slice(said, 0, 200)
+        _ -> String.slice(body, 0, 200)
       end
 
     {:down, "It answered #{status}: #{String.slice(why, 0, 200)}"}
@@ -360,7 +360,7 @@ defmodule AiGateway do
       case vault.fetch(call, item, %{url: listing, headers: %{"authorization" => "Bearer {{api_key}}"}}) do
         %{status: status, body: body} when status in 200..299 ->
           listed =
-            with {:ok, %{} = said} <- JSON.decode(body), do: said["data"] || said["result"] || [], else: (_ -> [])
+            with {:ok, %{} = response} <- JSON.decode(body), do: response["data"] || response["result"] || [], else: (_ -> [])
 
           models =
             for model <- listed,
@@ -394,8 +394,8 @@ defmodule AiGateway do
           list
 
         _ ->
-          for %{"type" => "text", "supported_parameters" => %{} = said} <- model["output_modalities"] || [],
-              {name, _} <- said,
+          for %{"type" => "text", "supported_parameters" => %{} = parameters} <- model["output_modalities"] || [],
+              {name, _} <- parameters,
               do: name
       end
 

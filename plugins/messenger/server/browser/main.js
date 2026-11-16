@@ -86,8 +86,8 @@ const reads = {
         if (text && !walk.currentNode.parentElement.closest("abbr, [aria-hidden='true']")) texts.push(text)
       }
       const unread = texts.includes("Unread message:")
-      const said = texts.filter((t) => t !== "Unread message:" && t !== "Active now" && !/^Active \d.* ago$/.test(t) && t !== "·")
-      const last = said[0] === name ? said.slice(1) : said
+      const shown = texts.filter((t) => t !== "Unread message:" && t !== "Active now" && !/^Active \d.* ago$/.test(t) && t !== "·")
+      const last = shown[0] === name ? shown.slice(1) : shown
       return [{ name, time, unread, last: last.join(" "), index }]
     }),
   messages: () =>
@@ -169,7 +169,7 @@ const commands = {
     const c = pick(chats, chat)
     if (!c) throw new Refusal(`no recent chat called ${JSON.stringify(chat)}; recent chats: ${chats.map((c) => c.name).join("; ")}`)
     await openChat(held, chats, c)
-    const said = (await until(held.page, reads.messages)).map(message).filter(Boolean)
+    const messages = (await until(held.page, reads.messages)).map(message).filter(Boolean)
     let note = ""
     // Opening a chat marks it read: one that was unread is marked unread again.
     if (c.unread) {
@@ -184,8 +184,8 @@ const commands = {
       }
       held.dirty = true
     }
-    if (!said.length) throw new Error(`no messages showed in ${c.name}${note}`)
-    return said.map((m) => `[${m.time}] ${m.sender}: ${m.text}`).join("\n") + note
+    if (!messages.length) throw new Error(`no messages showed in ${c.name}${note}`)
+    return messages.map((m) => `[${m.time}] ${m.sender}: ${m.text}`).join("\n") + note
   },
 
   async search({ account, state, query }) {

@@ -115,7 +115,7 @@ assert any(row[-1].startswith("SEARCH r USING INDEX readings_newest (provider=? 
 EOF
 
 say "No token reached an answer, a log or the bucket"
-echo "what every call answered: $(wc -l <"$folder/said") lines, of which $({ grep -c -F -e "$marker" "$folder/said" || true; }) hold a token's marker"
+echo "what every call answered: $(wc -l <"$folder/output") lines, of which $({ grep -c -F -e "$marker" "$folder/output" || true; }) hold a token's marker"
 echo "the servers' logs: $(cat "$folder"/a.log "$folder"/b.log | wc -l) lines, of which $({ cat "$folder"/a.log "$folder"/b.log | grep -c -a -F -e "$marker" || true; }) hold it"
 echo "the bucket's files: $(find "$bucket" -type f | wc -l), of which $({ grep -r -a -l -F -e "$marker" "$bucket" || true; } | wc -l) hold it"
 [[ $({ grep -c -F -e "$marker" "$folder/said" || true; }) == 0 && $({ grep -r -a -l -F -e "$marker" "$bucket" || true; } | wc -l) == 0 ]]
