@@ -125,7 +125,7 @@ defmodule AgentsMd.Writer do
       same ->
         state
 
-      path = Enum.find(Map.keys(files), &Agents.outside?/1) ->
+      path = Enum.find(Map.keys(files), &AgentsMd.outside?/1) ->
         tell(state, "left #{folder} alone: #{path} isn't a path inside the skill")
 
       true ->
