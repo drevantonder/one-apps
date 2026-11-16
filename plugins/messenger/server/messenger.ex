@@ -23,8 +23,12 @@ defmodule Messenger do
   @impl true
   def uses, do: ["database", "vault"]
 
+  # Its page signs an account in, as sign_in's own: it's in Accounts, not an app on a page.
   @impl true
-  def apps, do: [%{name: "Messenger", page: "client/index.html", icon: "client/icon.svg", account: true}]
+  def title, do: "Messenger"
+
+  @impl true
+  def icon, do: "client/icon.svg"
 
   @impl true
   def tools do
@@ -33,7 +37,7 @@ defmodule Messenger do
         name: "accounts",
         read_only: true,
         description:
-          "The Messenger accounts signed in, the default first: each { account, ok }, with why, and problem for a person, when ok is false and it needs signing in again. Give account to the others to pick one.",
+          "The Messenger accounts signed in, the default first: each { account, ok }, with why when ok is false and it needs signing in again. Give account to the others to pick one.",
         inputs: %{type: "object", properties: %{}}
       },
       %{
@@ -92,6 +96,7 @@ defmodule Messenger do
       },
       %{
         name: "sign_in",
+        ui: "client/index.html",
         description:
           "For the user: opens a browser window on one of their devices at messenger.com, for them to sign in there themselves; never sign in for them. It's kept once their chats show. Signs the first account in again when none is given.",
         inputs: %{
@@ -123,7 +128,7 @@ defmodule Messenger do
   def call("accounts", _inputs, call) do
     for a <- transaction(call, &query(&1, "select * from accounts order by rowid")) do
       if a["why"],
-        do: %{account: a["name"], ok: false, why: a["why"], problem: "Sign in again"},
+        do: %{account: a["name"], ok: false, why: a["why"]},
         else: %{account: a["name"], ok: true}
     end
   end

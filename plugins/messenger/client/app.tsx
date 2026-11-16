@@ -1,5 +1,5 @@
-// Messenger: each account is a sign-in to messenger.com, held by a browser on one of your devices. Opened from the
-// Accounts folder with its name after a `#`, it's that account; with none, it signs one in, which opens a window on
+// Messenger: each account is a sign-in to messenger.com, held by a browser on one of your devices. Opened from
+// Accounts, as sign_in's page, with its name after a `#`, it's that account; with none, it signs one in, which opens a window on
 // that device's screen, where you sign in yourself.
 import { createMemo, createSignal, Errored, For, Loading, refresh, Show } from "solid-js"
 import { render } from "@solidjs/web"
@@ -56,7 +56,7 @@ function SignIn(props: { devices: string[] }) {
   )
 }
 
-/// One account, opened from the Accounts folder: whether it needs signing in again, and Sign Out.
+/// One account, opened from Accounts: whether it needs signing in again, and Sign Out.
 function AccountView(props: { account: Account; devices: string[] }) {
   const signOut = async () => {
     const sure = await confirm({

@@ -50,8 +50,12 @@ defmodule WhatsApp do
   @impl true
   def uses, do: ["database", "vault"]
 
+  # Its page links a phone, as sign_in's own: it's in Accounts, not an app on a page.
   @impl true
-  def apps, do: [%{name: "WhatsApp", page: "client/index.html", icon: "client/icon.svg", account: true}]
+  def title, do: "WhatsApp"
+
+  @impl true
+  def icon, do: "client/icon.svg"
 
   @impl true
   def tools do
@@ -60,7 +64,7 @@ defmodule WhatsApp do
         name: "accounts",
         read_only: true,
         description:
-          "The WhatsApp accounts linked on any of your devices: each { account, ok, device, about }, account its number and device where it's linked, with why, and problem for a person, when ok is false. Give account to the others to pick one.",
+          "The WhatsApp accounts linked on any of your devices: each { account, ok, device }, account its number and device where it's linked, with why when ok is false. Give account to the others to pick one.",
         inputs: %{type: "object", properties: %{}}
       },
       %{
@@ -78,6 +82,7 @@ defmodule WhatsApp do
       },
       %{
         name: "sign_in",
+        ui: "client/index.html",
         description:
           "For the user: link a WhatsApp account to one of their devices, as WhatsApp Desktop is linked. Gives a QR code to scan on their phone (WhatsApp > Settings > Linked devices > Link a device) and, given phone, a code to type there instead (Link with phone number instead), for when the QR code shows on the phone itself. Chats arrive over the next few minutes.",
         inputs: %{
@@ -206,8 +211,8 @@ defmodule WhatsApp do
       device = OneCore.Service.name(link["server"]) || "a device"
       %{connected: connected, why: why} = how(link, live, device)
 
-      %{account: "+" <> link["account"], ok: connected, device: device, about: "Linked on #{device}"}
-      |> then(&if(why, do: Map.merge(&1, %{why: why, problem: "Not connected"}), else: &1))
+      %{account: "+" <> link["account"], ok: connected, device: device}
+      |> then(&if(why, do: Map.put(&1, :why, why), else: &1))
     end
   end
 

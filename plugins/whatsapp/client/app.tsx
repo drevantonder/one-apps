@@ -1,5 +1,5 @@
-// WhatsApp: each account is a phone linked to one of your devices, as WhatsApp Desktop is linked. Opened from the
-// Accounts folder with its number after a `#`, it's that account; with none, it links one: it shows the QR code to
+// WhatsApp: each account is a phone linked to one of your devices, as WhatsApp Desktop is linked. Opened from
+// Accounts, as sign_in's page, with its number after a `#`, it's that account; with none, it links one: it shows the QR code to
 // scan on the phone, and the code to type there for a number.
 import { createMemo, createSignal, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
 import { render } from "@solidjs/web"
@@ -99,7 +99,7 @@ function Link(props: { devices: string[]; again: () => void }) {
   )
 }
 
-/// One account, opened from the Accounts folder: what's wrong with it, if anything, where it's linked, and Sign Out.
+/// One account, opened from Accounts: what's wrong with it, if anything, where it's linked, and Sign Out.
 function AccountView(props: { account: Account }) {
   const signOut = async () => {
     const sure = await confirm({
