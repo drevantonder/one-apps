@@ -386,7 +386,7 @@ defmodule AiGateway do
   def listed(%{"id" => id} = model) do
     types = fn list -> list && Enum.map(list, &if(is_map(&1), do: &1["type"], else: &1)) end
     takes = types.(get_in(model, ["architecture", "input_modalities"]) || model["input_modalities"])
-    gives = types.(get_in(model, ["architecture", "output_modalities"]) || model["output_modalities"])
+    outputs = types.(get_in(model, ["architecture", "output_modalities"]) || model["output_modalities"])
 
     parameters =
       case model["supported_parameters"] do
@@ -399,7 +399,7 @@ defmodule AiGateway do
               do: name
       end
 
-    if gives == nil or "text" in gives do
+    if outputs == nil or "text" in outputs do
       %{
         "name" => id,
         "vision" => takes && "image" in takes,

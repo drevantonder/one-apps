@@ -461,9 +461,9 @@ defmodule WhatsApp do
       if live == :here do
         Base.decode64!(vault.value(call, item(account), "key"))
       else
-        made = :crypto.strong_rand_bytes(32)
-        vault.keep(call, item(account), %{"key" => Base.encode64(made)})
-        made
+        key = :crypto.strong_rand_bytes(32)
+        vault.keep(call, item(account), %{"key" => Base.encode64(key)})
+        key
       end
 
     iv = :crypto.strong_rand_bytes(12)

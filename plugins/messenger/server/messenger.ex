@@ -227,9 +227,9 @@ defmodule Messenger do
 
     key =
       if signed_in do
-        made = :crypto.strong_rand_bytes(32)
-        vault.keep(call, item(account), %{"key" => Base.encode64(made)})
-        made
+        key = :crypto.strong_rand_bytes(32)
+        vault.keep(call, item(account), %{"key" => Base.encode64(key)})
+        key
       else
         Base.decode64!(vault.value(call, item(account), "key"))
       end
