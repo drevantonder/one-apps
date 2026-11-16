@@ -55,6 +55,10 @@ defmodule AIUsage.Reader do
   @impl GenServer
   def handle_cast({:hold, key, until}, held), do: {:noreply, Map.put(held, key, until)}
 
+  # A version before this one kept nothing in its process.
+  @impl GenServer
+  def code_change(_old, held, _extra), do: {:ok, held || %{}}
+
   # What's said of an account, without its token.
   defp said(a) do
     label =
