@@ -6,16 +6,24 @@ import { Button, call, changed, Empty, Icon, leave, Problem, Screen, Skeleton } 
 import "./app.css"
 
 /// A tool of this plugin's, answered as the screen reads it.
-const ask = (tool, inputs = {}) => call(`agent-memory_${tool}`, { ...inputs, format: "json" }).then(JSON.parse)
+/** A line of memory: one memory (`lo` to `hi` one apart), or a summary of several, and its day. */
+interface Memory {
+  lo: number
+  hi: number
+  date?: string
+  text: string | null
+}
 
-const single = (line) => line.hi - line.lo === 1
-const name = (line) => (single(line) ? `#${line.lo}` : `#${line.lo}–${line.hi - 1}`)
+const ask = <T,>(tool: string, inputs = {}): Promise<T> => call(`agent-memory_${tool}`, { ...inputs, format: "json" }).then(JSON.parse)
+
+const single = (line: Memory) => line.hi - line.lo === 1
+const name = (line: Memory) => (single(line) ? `#${line.lo}` : `#${line.lo}–${line.hi - 1}`)
 const day = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" })
 
 /// One line: a memory, or a summary that opens into its halves.
-function Line(props) {
-  const [halves, setHalves] = createSignal()
-  const toggle = async () => setHalves(halves() ? undefined : await ask("zoom", { block: `${props.line.lo}-${props.line.hi - 1}` }).catch(() => undefined))
+function Line(props: { line: Memory }) {
+  const [halves, setHalves] = createSignal<Memory[]>()
+  const toggle = async () => setHalves(halves() ? undefined : await ask<Memory[]>("zoom", { block: `${props.line.lo}-${props.line.hi - 1}` }).catch(() => undefined))
   const words = () => (
     <span class="words">
       <span class="about">
@@ -39,7 +47,7 @@ function Line(props) {
   )
 }
 
-function Lines(props) {
+function Lines(props: { lines: Memory[] }) {
   return <For each={props.lines} keyed={(line) => `${line.lo}-${line.hi}`}>{(line) => <Line line={line()} />}</For>
 }
 
@@ -47,8 +55,10 @@ function Lines(props) {
 let pinned = true
 addEventListener("scroll", () => (pinned = innerHeight + scrollY >= document.body.scrollHeight - 40), { passive: true })
 
-function Memory(props) {
-  createEffect(() => props.memory.count, () => pinned && scrollTo(0, document.body.scrollHeight))
+function Remembered(props: { memory: { count: number; lines: Memory[] } }) {
+  createEffect(() => props.memory.count, () => {
+    if (pinned) scrollTo(0, document.body.scrollHeight)
+  })
   return (
     <Show when={props.memory.lines.length} fallback={<Empty>Nothing remembered yet</Empty>}>
       <div class="lines">
@@ -59,13 +69,13 @@ function Memory(props) {
 }
 
 function App() {
-  const memory = createMemo(() => ask("wake"))
+  const memory = createMemo(() => ask<{ count: number; lines: Memory[] }>("wake"))
   changed(() => refresh(memory))
   return (
     <Screen heading="Agent Memory" back onBack={leave}>
-      <Errored fallback={(error, reset) => <Problem heading="Couldn't load the memory" text={error().message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
+      <Errored fallback={(error, reset) => <Problem heading="Couldn't load the memory" text={(error() as Error).message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
         <Loading fallback={<Skeleton rows={3} />}>
-          <Memory memory={memory()} />
+          <Remembered memory={memory()} />
         </Loading>
       </Errored>
     </Screen>
