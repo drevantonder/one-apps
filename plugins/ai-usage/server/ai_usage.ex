@@ -78,18 +78,18 @@ defmodule AIUsage do
 
     stored = transaction.(fn db -> Map.new(ids, &{&1, latest(db, &1)}) end)
     stale = Enum.filter(ids, fn id -> Enum.all?(stored[id], &(now - &1["at"] >= @fresh)) end)
-    asked = if stale != [], do: ask(call, inputs["device"])
+    response = if stale != [], do: ask(call, inputs["device"])
 
     all =
       transaction.(fn db ->
         query(db, "delete from readings where at < ?", [now - @keep])
 
         Enum.flat_map(ids, fn id ->
-          if id in stale, do: merge(db, id, stored[id], asked, now), else: Enum.map(stored[id], &Map.put(&1, "now", now))
+          if id in stale, do: merge(db, id, stored[id], response, now), else: Enum.map(stored[id], &Map.put(&1, "now", now))
         end)
       end)
 
-    problem = if all == [] and asked, do: asked[:problem]
+    problem = if all == [] and response, do: response[:problem]
 
     if inputs["format"] == "json" do
       %{at: now, problem: problem, providers: Enum.map(all, &json(&1, now))}

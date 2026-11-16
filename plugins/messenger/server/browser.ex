@@ -35,7 +35,7 @@ defmodule Messenger.Browser do
   def init(_) do
     bun = System.find_executable("bun") || raise "This machine has no Bun to run Messenger's browser with"
 
-    {:ok, %{bun: bun, port: nil, buffer: "", waiting: %{}, asked: 0, open: MapSet.new(), whos: %{}},
+    {:ok, %{bun: bun, port: nil, buffer: "", waiting: %{}, request_id: 0, open: MapSet.new(), whos: %{}},
      {:continue, :start}}
   end
 
@@ -77,9 +77,9 @@ defmodule Messenger.Browser do
   end
 
   defp ask(state, command, from) do
-    id = state.asked + 1
+    id = state.request_id + 1
     Port.command(state.port, JSON.encode!(Map.put(command, "id", id)) <> "\n")
-    %{state | asked: id, waiting: Map.put(state.waiting, id, from)}
+    %{state | request_id: id, waiting: Map.put(state.waiting, id, from)}
   end
 
   @impl GenServer

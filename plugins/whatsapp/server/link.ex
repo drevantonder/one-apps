@@ -54,7 +54,7 @@ defmodule WhatsApp.Link do
   @impl GenServer
   def init(_) do
     if System.find_executable("go") == nil, do: raise("This machine has no Go to build the WhatsApp link with")
-    {:ok, %{program: nil, ports: %{}, accounts: %{}, pairing: nil, asked: 0}, {:continue, :build}}
+    {:ok, %{program: nil, ports: %{}, accounts: %{}, pairing: nil, request_id: 0}, {:continue, :build}}
   end
 
   @impl GenServer
@@ -194,10 +194,10 @@ defmodule WhatsApp.Link do
   end
 
   defp ask(state, port, command, from) do
-    id = state.asked + 1
+    id = state.request_id + 1
     Port.command(port, JSON.encode!(Map.put(command, :id, id)) <> "\n")
     state = put_in(state.ports[port].waiting[id], from)
-    %{state | asked: id}
+    %{state | request_id: id}
   end
 
   defp reply({:closing, from, _then}, answer), do: GenServer.reply(from, answer)

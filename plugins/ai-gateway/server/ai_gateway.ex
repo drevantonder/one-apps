@@ -124,7 +124,7 @@ defmodule AiGateway do
       )
 
     Enum.reduce_while(tries, [], fn id, why ->
-      case asked(call, id, body, inputs["schema"] != nil) do
+      case request(call, id, body, inputs["schema"] != nil) do
         {:ok, answer} -> {:halt, answer}
         {:down, said} -> {:cont, why ++ ["#{id}: #{said}"]}
       end
@@ -168,14 +168,14 @@ defmodule AiGateway do
 
   # Each model asked is a span of the call, as OpenTelemetry's conventions for AI name it: Telemetry shows how long
   # each took, and what each used.
-  defp asked(call, id, body, json?) do
+  defp request(call, id, body, json?) do
     began = System.monotonic_time(:microsecond)
-    asked = ask(call, id, body, json?)
+    response = ask(call, id, body, json?)
     took = (System.monotonic_time(:microsecond) - began) / 1000
     attributes = %{"gen_ai.operation.name" => "chat", "gen_ai.request.model" => id}
-    error = if match?({:down, _why}, asked), do: elem(asked, 1)
+    error = if match?({:down, _why}, response), do: elem(response, 1)
     record(call, [%{"name" => "chat #{id}", "attributes" => attributes, "took" => took, "error" => error}])
-    asked
+    response
   end
 
   # What Telemetry keeps, where it's added: names, sizes and outcomes, never what was asked or answered.
