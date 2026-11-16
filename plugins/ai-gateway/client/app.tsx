@@ -6,33 +6,64 @@ import { render } from "@solidjs/web"
 import { Button, call, changed, Empty, leave, List, open, Problem, Row, Screen, Section, seen, Sheet, Skeleton, toast } from "ui"
 import "./app.css"
 
-const models = createMemo(() => call("ai-gateway_models").then(JSON.parse))
+/** A model, and what it does. */
+interface Model {
+  id: string
+  name: string
+  vision?: boolean
+  structured?: boolean
+}
+
+/** A job, and the models it tries, in order. */
+interface Job {
+  job: string
+  models: string[]
+  whose: string | null
+}
+
+/** Where models run: a machine of yours or a hosted endpoint, and whether it's answering. */
+interface Place {
+  name: string
+  up: boolean
+  seen?: number
+  problem?: string
+  models: Model[]
+}
+
+/** A day of a model's use of AI, as Telemetry keeps it. */
+interface Day {
+  input: number
+  output: number
+  cost?: number | null
+}
+
+const models = createMemo(() => call("ai-gateway_models").then((text): { jobs: Job[]; places: Place[] } => JSON.parse(text)))
 /// What AI used this week, as Telemetry keeps it, or nothing where the network has no Telemetry.
-const spent = createMemo(() => call("telemetry_spending", { days: 7 }).then(JSON.parse, () => null))
+const spent = createMemo(() => call("telemetry_spending", { days: 7 }).then((text): Day[] => JSON.parse(text), () => null))
 changed(() => (refresh(models), refresh(spent)))
 const compact = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 })
 /// This week's tokens, and what they cost where an endpoint said.
-function spending(days) {
+function spending(days: Day[]) {
   const tokens = days.reduce((sum, day) => sum + day.input + day.output, 0)
   const priced = days.filter((day) => day.cost != null)
-  const cost = priced.reduce((sum, day) => sum + day.cost, 0).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 4 })
+  const cost = priced.reduce((sum, day) => sum + day.cost!, 0).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 4 })
   return tokens ? [`${compact.format(tokens)} tokens this week`, priced.length && cost].filter(Boolean).join(" · ") : "No AI used this week"
 }
 
 /// The jobs everyone has, and any other someone set.
 const jobs = () => {
   const set = new Map(models().jobs.map((job) => [job.job, job]))
-  return [...new Set(["chat", "vision", ...set.keys()])].map((job) => set.get(job) ?? { job, models: [], whose: null })
+  return [...new Set(["chat", "vision", ...set.keys()])].map((job): Job => set.get(job) ?? { job, models: [], whose: null })
 }
-const named = (job) => job[0].toUpperCase() + job.slice(1)
+const named = (job: string) => job[0].toUpperCase() + job.slice(1)
 /// Every model that's up, as a job can choose them.
 const choosable = () => models().places.flatMap((place) => (place.up ? place.models : []))
-const does = (model) => [model.vision && "Vision", model.structured && "Structured answers"].filter(Boolean).join(" · ")
+const does = (model: Partial<Model>) => [model.vision && "Vision", model.structured && "Structured answers"].filter(Boolean).join(" · ")
 
 /// The job whose models are being chosen, and those chosen so far, in order.
-const [choosing, setChoosing] = createSignal()
-const [picked, setPicked] = createSignal([])
-const choose = (job) => {
+const [choosing, setChoosing] = createSignal<Job>()
+const [picked, setPicked] = createSignal<string[]>([])
+const choose = (job: Job) => {
   setPicked(job.models)
   setChoosing(job)
 }
@@ -40,22 +71,22 @@ const choose = (job) => {
 /// A job's models, in the order they're tried: pressing one adds it to the end, or takes it out.
 function JobSheet() {
   const [saving, setSaving] = createSignal(false)
-  const toggle = (id) => setPicked((now) => (now.includes(id) ? now.filter((was) => was !== id) : [...now, id]))
+  const toggle = (id: string) => setPicked((now) => (now.includes(id) ? now.filter((was) => was !== id) : [...now, id]))
   const save = async () => {
     setSaving(true)
     try {
-      await call("ai-gateway_set", { job: choosing().job, models: picked() })
+      await call("ai-gateway_set", { job: choosing()!.job, models: picked() })
       refresh(models)
       setChoosing()
     } catch (error) {
-      toast(error.message)
+      toast((error as Error).message)
     }
     setSaving(false)
   }
   // Models it tries that aren't up now stay in its list, after those that are.
   const offered = () => [...choosable().map((model) => model.id), ...picked().filter((id) => !choosable().some((model) => model.id === id))]
   return (
-    <Sheet heading={choosing() && named(choosing().job)} open={!!choosing()} onClose={() => setChoosing()}>
+    <Sheet heading={choosing() && named(choosing()!.job)} open={!!choosing()} onClose={() => setChoosing()}>
       <Show when={choosing()}>
         <p class="hint">The first that's up answers. With none chosen, a model on your machines does.</p>
         <List>
@@ -76,7 +107,7 @@ function JobSheet() {
 render(
   () => (
     <Screen heading="AI Gateway" back onBack={leave}>
-      <Errored fallback={(error) => <Problem heading="Can't show your models" text={String(error().message ?? error())} />}>
+      <Errored fallback={(error) => <Problem heading="Can't show your models" text={String((error() as Error).message ?? error())} />}>
         <Loading fallback={<Skeleton rows={4} />}>
           <Section heading="Jobs">
             <List>
@@ -94,7 +125,7 @@ render(
           </Section>
           <Show when={spent()}>
             <List>
-              <Row heading="Spending" text={spending(spent())} onClick={() => open("telemetry")} />
+              <Row heading="Spending" text={spending(spent()!)} onClick={() => open("telemetry")} />
             </List>
           </Show>
           <Show when={models().places.length} fallback={<Empty>No models yet. Run a model server on a machine of yours, or add a key in the Vault.</Empty>}>
