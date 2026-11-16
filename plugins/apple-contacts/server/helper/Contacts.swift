@@ -1,10 +1,15 @@
 import Contacts
 import Foundation
 
-/// Contacts, through the Contacts framework.
+/// Contacts, through the Contacts framework, which needs access to the Mac's contacts.
+func run(_ function: String, _ input: Input) throws -> Any {
+    try need(contactsAccess(), "use your contacts", pane: "Contacts",
+             allow: "turn on \(thisApp)") { CNContactStore().requestAccess(for: .contacts) { _, _ in } }
+    return try ContactsPart.run(function, input)
+}
+
 enum ContactsPart {
     static func run(_ function: String, _ input: Input) throws -> Any {
-        try Permissions.people()
         let store = CNContactStore()
         switch function {
         case "search":
@@ -64,5 +69,13 @@ enum ContactsPart {
             },
             "birthday": birthday, "urls": c.urlAddresses.isEmpty ? nil : c.urlAddresses.map { $0.value as String },
         ])
+    }
+}
+
+func contactsAccess() -> Access {
+    switch CNContactStore.authorizationStatus(for: .contacts) {
+    case .authorized, .limited: .granted
+    case .notDetermined: .unasked
+    default: .denied
     }
 }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- What macOS shows where it asks for a permission, and in Privacy & Security, under the helper's name. -->
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>app.theone.imessage</string>
+  <key>CFBundleName</key><string>iMessage for The One App</string>
+  <key>CFBundleExecutable</key><string>helper</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>LSBackgroundOnly</key><true/>
+  <key>NSContactsUsageDescription</key><string>So your messages show who they're from by name, not number.</string>
+  <key>NSAppleEventsUsageDescription</key><string>So your agents can send the messages you ask them to, through Messages.</string>
+</dict>
+</plist>

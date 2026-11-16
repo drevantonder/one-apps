@@ -28,13 +28,14 @@ func startedAsItself() -> Int32 {
 }
 
 /// What's the caller's to change, or what went wrong, in words for whoever asked.
+/// What's the caller's to change, or what went wrong, in words for whoever asked.
 struct Refusal: Error, CustomStringConvertible {
     var description: String
     init(_ description: String) { self.description = description }
 }
 
 /// This helper's name, as macOS shows it where it asks and in Privacy & Security.
-let thisApp = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "The One App Helper"
+let thisApp = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "this helper"
 
 /// A call's inputs, read leniently: the CLI sends a flag that looks like a number as one.
 struct Input {
@@ -115,4 +116,25 @@ func object(_ fields: [String: Any?]) -> [String: Any] { fields.compactMapValues
 
 extension String {
     var nonEmpty: String? { isEmpty ? nil : self }
+}
+
+/// Whether macOS gives this helper a permission.
+enum Access { case granted, denied, unasked }
+
+/// The permissions asked for this run: each at most once, since macOS shows its question on the Mac's screen and the
+/// call that asked says so rather than waiting for an answer that may come hours later.
+nonisolated(unsafe) var asked = Set<String>()
+
+/// Goes on only with `access` granted. Unasked, it asks macOS, once a run, and says where to answer; denied, it says
+/// where to allow it. `what` finishes "may …", and `allow` says what to do in the Settings pane `pane`.
+func need(_ access: Access, _ what: String, pane: String, allow: String, ask: () -> Void) throws {
+    switch access {
+    case .granted:
+        return
+    case .unasked:
+        if asked.insert(pane).inserted { ask() }
+        throw Refusal("Waiting for permission on the Mac: macOS is asking there whether \(thisApp) may \(what). Click Allow on the Mac, then ask again.")
+    case .denied:
+        throw Refusal("macOS doesn't let \(thisApp) \(what). Allow it on the Mac in System Settings → Privacy & Security → \(pane): \(allow).")
+    }
 }

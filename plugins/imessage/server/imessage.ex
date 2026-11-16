@@ -1,5 +1,5 @@
 defmodule IMessage do
-  @moduledoc "iMessage: the user's Messages on their Mac, iMessage and SMS, which the plugin `mac` reaches."
+  @moduledoc "iMessage: the user's Messages on their Mac, iMessage and SMS, through its service there, `IMessage.Helper`."
   @behaviour OneCore.Plugin
 
   @chat "the chat: its name as imessage_chats gives it, a part of the name only one chat has, or its id; or a phone number with its country code (+61 400 000 000) or an email address"
@@ -10,9 +10,6 @@ defmodule IMessage do
   }
   @limit %{type: "integer", description: "at most this many; default 30"}
   @message "{ time, from, text, attachments }, time ISO 8601 in the Mac's time zone, from the sender's name from Contacts (or their number), or me for the user, and attachments the files' names"
-
-  @impl true
-  def uses, do: ["mac"]
 
   @impl true
   def tools do
@@ -91,5 +88,5 @@ defmodule IMessage do
   end
 
   @impl true
-  def call(tool, inputs, call), do: OneCore.Call.plugin(call, "mac").ask(call, "imessage", tool, inputs)
+  def call(tool, inputs, call), do: OneCore.Service.call(call, IMessage.Helper, :ask, [tool, inputs])
 end

@@ -7,4 +7,8 @@ Reminders are the user's Apple Reminders, through their Mac, and sync to their o
 the lists; `list` lists reminders, soonest due first, leaving out completed ones unless asked. `update` also
 completes one, with `completed`. `delete` can't be undone: to tick one off instead, use `update`.
 
-It reaches the Mac through the plugin `mac`, whose skill says how it's set up and what macOS asks for.
+It reaches the Mac through its service `AppleReminders.Helper`, which builds and runs a small app there, Apple
+Reminders for The One App: `install_service --plugin apple-reminders --service AppleReminders.Helper --server <key>`
+(`services` gives the key); the Mac needs Xcode or its Command Line Tools. The first time a tool runs, macOS asks on
+the Mac's screen whether that app may use the reminders, and the tool says it's waiting for permission on the Mac.
+Only the Mac's person can answer it: tell them to click Allow, then ask again.

@@ -1,5 +1,5 @@
 defmodule AppleCalendar do
-  @moduledoc "Apple Calendar: the user's Apple Calendar, through their Mac, which the plugin `mac` reaches."
+  @moduledoc "Apple Calendar: the user's Apple Calendar on their Mac, through its service there, `AppleCalendar.Helper`."
   @behaviour OneCore.Plugin
 
   @time "an ISO 8601 date (2026-11-01) or date-time (2026-11-01T09:00); without an offset, in the Mac's time zone"
@@ -31,9 +31,6 @@ defmodule AppleCalendar do
     location: %{type: "string", description: "where, as text: an address or a room"},
     notes: %{type: "string", description: "more detail, as plain text"}
   }
-
-  @impl true
-  def uses, do: ["mac"]
 
   @impl true
   def tools do
@@ -108,5 +105,5 @@ defmodule AppleCalendar do
   end
 
   @impl true
-  def call(tool, inputs, call), do: OneCore.Call.plugin(call, "mac").ask(call, "calendar", tool, inputs)
+  def call(tool, inputs, call), do: OneCore.Service.call(call, AppleCalendar.Helper, :ask, [tool, inputs])
 end

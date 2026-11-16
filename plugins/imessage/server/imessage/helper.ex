@@ -1,30 +1,31 @@
-defmodule Mac.Helper do
+defmodule IMessage.Helper do
   @moduledoc """
-  Runs The One App Helper on its Mac: an app it builds there from `helper/`, with swiftc, and starts. It holds the
-  running helper between calls, writes it a line for each call and hands back the line it answers, in turn.
+  Runs iMessage for The One App on its Mac: a small app it builds there from `server/helper/`, with
+  swiftc, and starts. It holds the running helper between calls, writes it a line for each call and hands back the
+  line it answers, in turn.
 
-  The helper is an app, with a name and a purpose for each permission, so that macOS asks the Mac's person in its
-  name and keeps the answer for it, through updates of the server that started it. It's built again only when its
-  source changes, and macOS then asks again, as it does for any changed app that isn't signed by a developer.
+  The helper is an app of this plugin's own, with a name and a purpose for its permission, so that macOS asks the
+  Mac's person in its name and keeps the answer for it, through updates of the server that started it, and removing
+  the plugin removes it and what it was allowed. It's built again only when its source changes, and macOS then asks
+  again, as it does for any changed app that isn't signed by a developer.
   """
   use GenServer
   @behaviour OneCore.Service
 
-  @app "The One App Helper.app"
+  @app "iMessage for The One App.app"
 
   @impl OneCore.Service
-  def called, do: "The One App Helper"
+  def called, do: "iMessage for The One App"
 
   @impl OneCore.Service
   def needs do
-    "A Mac with Xcode or its Command Line Tools, whose swiftc builds the app it brings, The One App Helper, " <>
-      "which reaches Calendar, Reminders, Contacts and Messages. macOS asks the Mac's person for each on its " <>
-      "screen the first time, and Full Disk Access, to read messages, is turned on in System Settings."
+    "A Mac with Xcode or its Command Line Tools, whose swiftc builds the app it brings, iMessage for The One App, " <>
+      "which reads Messages' database and sends through Messages. Reading needs Full Disk Access, which the Mac's person turns on in System Settings; macOS asks them on its screen to let it control Messages the first time it sends, and to use their contacts, for names."
   end
 
-  @doc "Asks the helper for `function` of `part` with `inputs`, and gives its answer, or raises with what it said."
-  def ask(service, part, function, inputs) do
-    case GenServer.call(service, {:ask, %{part: part, function: function, inputs: inputs}}, 120_000) do
+  @doc "Asks the helper for `function` with `inputs`, and gives its answer, or raises with what it said."
+  def ask(service, function, inputs) do
+    case GenServer.call(service, {:ask, %{function: function, inputs: inputs}}, 120_000) do
       %{"ok" => answer} -> answer
       %{"error" => why} -> raise why
     end
@@ -33,10 +34,10 @@ defmodule Mac.Helper do
   @impl GenServer
   def init(_) do
     for program <- ["swiftc", "codesign"], System.find_executable(program) == nil do
-      raise "This machine has no #{program}: The One App Helper is built on a Mac, with Xcode or its Command Line Tools"
+      raise "This machine has no #{program}: iMessage for The One App is built on a Mac, with Xcode or its Command Line Tools"
     end
 
-    {:ok, start(OneCore.Service.folder(self(), "helper"))}
+    {:ok, start(OneCore.Service.folder(self(), "server/helper"))}
   end
 
   @impl GenServer
@@ -58,14 +59,14 @@ defmodule Mac.Helper do
 
   # The helper stopped by itself, so the service does too, and its server starts both again.
   def handle_info({helper, {:exit_status, status}}, %{helper: helper}) do
-    raise "The One App Helper stopped, with status #{status}"
+    raise "iMessage for The One App stopped, with status #{status}"
   end
 
   # A new version of the plugin. The helper carries on through it unless its own source changed, which gives it a
   # new folder: then it's built and started again.
   @impl GenServer
   def code_change(_version, state, _extra) do
-    case OneCore.Service.folder(self(), "helper") do
+    case OneCore.Service.folder(self(), "server/helper") do
       folder when folder == state.folder ->
         {:ok, state}
 
@@ -104,7 +105,7 @@ defmodule Mac.Helper do
   defp run(folder, program, args) do
     case System.cmd(System.find_executable(program), args, cd: folder, stderr_to_stdout: true) do
       {_, 0} -> :ok
-      {said, _} -> raise "The One App Helper didn't build: #{program} said\n" <> said
+      {said, _} -> raise "iMessage for The One App didn't build: #{program} said\n" <> said
     end
   end
 end

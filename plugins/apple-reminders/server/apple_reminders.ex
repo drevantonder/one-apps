@@ -1,13 +1,10 @@
 defmodule AppleReminders do
-  @moduledoc "Apple Reminders: the user's Apple Reminders, through their Mac, which the plugin `mac` reaches."
+  @moduledoc "Apple Reminders: the user's Apple Reminders on their Mac, through its service there, `AppleReminders.Helper`."
   @behaviour OneCore.Plugin
 
   @id %{type: "string", description: "the reminder's id, as apple-reminders_list gives it"}
   @priority %{type: "string", enum: ["high", "medium", "low", "none"], description: "high, medium, low or none"}
   @reminder "{ id, title, list, due, priority, notes, completed }, due a date or, with a time, an ISO 8601 date-time in the Mac's time zone, and completed when it was done"
-
-  @impl true
-  def uses, do: ["mac"]
 
   @impl true
   def tools do
@@ -99,5 +96,5 @@ defmodule AppleReminders do
   end
 
   @impl true
-  def call(tool, inputs, call), do: OneCore.Call.plugin(call, "mac").ask(call, "reminders", tool, inputs)
+  def call(tool, inputs, call), do: OneCore.Service.call(call, AppleReminders.Helper, :ask, [tool, inputs])
 end

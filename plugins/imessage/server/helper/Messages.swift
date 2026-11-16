@@ -2,6 +2,10 @@ import Contacts
 import Foundation
 import SQLite3
 
+/// iMessage. Reading needs Full Disk Access, which macOS never asks for; sending needs macOS to let the helper control
+/// Messages, which it asks for the first time; and names need Contacts, asked for once, with numbers shown until then.
+func run(_ function: String, _ input: Input) throws -> Any { try MessagesPart.run(function, input) }
+
 /// iMessage: reads Messages' database, ~/Library/Messages/chat.db, read-only, which needs Full Disk Access; and sends
 /// through the Messages app, which needs macOS to let the helper control it. A message shows who it's from by their
 /// name in Contacts once Contacts is allowed, and by their number until then.
@@ -10,8 +14,6 @@ enum MessagesPart {
     static var database: String {
         (ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) + "/Library/Messages/chat.db"
     }
-
-    static func readable() -> Bool { (try? ChatDB(database)) != nil }
 
     static func run(_ function: String, _ input: Input) throws -> Any {
         if function == "send", let to = input.string("to"), to.contains("@") || isPhone(to) {
@@ -143,7 +145,7 @@ final class ChatDB {
             sqlite3_close(db)
             db = nil
             let app = Bundle.main.bundlePath
-            throw Refusal("Reading iMessages needs Full Disk Access, which macOS never asks for. Allow it on the Mac in System Settings → Privacy & Security → Full Disk Access: " +
+            throw Refusal("Waiting for permission on the Mac: reading iMessages needs Full Disk Access, which macOS never asks for. Allow it on the Mac in System Settings → Privacy & Security → Full Disk Access: " +
                           "turn on \(thisApp), or if it isn't listed, click +, press Command-Shift-G and go to \(app).")
         }
         // body(text, attributedBody): a message's text, wherever this macOS keeps it.
@@ -264,16 +266,23 @@ func archivedText(_ b: [UInt8]) -> String? {
     return String(decoding: b[i..<i + length], as: UTF8.self)
 }
 
-/// Everyone's name by each of their phone numbers and email addresses (see `handle`), once Contacts is allowed: it
-/// isn't asked for here, but by Contacts' own tools.
+/// Everyone's name by each of their phone numbers and email addresses (see `handle`), once Contacts is allowed. The
+/// first call asks for it, and goes on with numbers rather than waiting for the answer.
 enum Names {
     static func all() -> [String: String] {
-        guard Permissions.contacts() == .granted else { return [:] }
+        switch CNContactStore.authorizationStatus(for: .contacts) {
+        case .authorized, .limited: break
+        case .notDetermined:
+            if asked.insert("Contacts").inserted { CNContactStore().requestAccess(for: .contacts) { _, _ in } }
+            return [:]
+        default: return [:]
+        }
         var names: [String: String] = [:]
         let request = CNContactFetchRequest(keysToFetch: [CNContactGivenNameKey, CNContactFamilyNameKey, CNContactOrganizationNameKey,
                                                           CNContactPhoneNumbersKey, CNContactEmailAddressesKey] as [CNKeyDescriptor])
         try? CNContactStore().enumerateContacts(with: request) { c, _ in
-            let name = ContactsPart.name(c)
+            let person = [c.givenName, c.familyName].filter { !$0.isEmpty }.joined(separator: " ")
+            let name = person.isEmpty ? c.organizationName : person
             guard !name.isEmpty else { return }
             for p in c.phoneNumbers { names[handle(p.value.stringValue)] = name }
             for e in c.emailAddresses { names[handle(e.value as String)] = name }

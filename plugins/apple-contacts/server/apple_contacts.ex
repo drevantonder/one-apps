@@ -1,11 +1,8 @@
 defmodule AppleContacts do
-  @moduledoc "Apple Contacts: the user's Apple Contacts, through their Mac, which the plugin `mac` reaches."
+  @moduledoc "Apple Contacts: the user's Apple Contacts on their Mac, through its service there, `AppleContacts.Helper`."
   @behaviour OneCore.Plugin
 
   @card "{ id, name, nickname, organization, job, phones, emails, addresses, birthday, urls }, each only when the card has it; name is the organization's when the card has no name, phones, emails and addresses are each { label, number } or { label, address }, and birthday is year-month-day, or month-day when the card has no year"
-
-  @impl true
-  def uses, do: ["mac"]
 
   @impl true
   def tools do
@@ -49,5 +46,5 @@ defmodule AppleContacts do
   end
 
   @impl true
-  def call(tool, inputs, call), do: OneCore.Call.plugin(call, "mac").ask(call, "contacts", tool, inputs)
+  def call(tool, inputs, call), do: OneCore.Service.call(call, AppleContacts.Helper, :ask, [tool, inputs])
 end
