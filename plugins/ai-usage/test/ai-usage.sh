@@ -46,10 +46,12 @@ creds "$marker-claude-2" $later >"$XDG_DATA_HOME/claude-swap/credentials/.creds-
 creds "$marker-claude-3" 1000 >"$XDG_DATA_HOME/claude-swap/credentials/.creds-3-old@example.com.enc"
 cat >"$XDG_DATA_HOME/claude-swap/sequence.json" <<EOF
 {"activeAccountNumber":1,"sequence":[1,2,3],"accounts":{
-  "1":{"email":"sam@example.com","organizationName":"sam@example.com's Organization"},
-  "2":{"email":"sam@work.example","organizationName":"Example Co"},
-  "3":{"email":"old@example.com","organizationName":"Old Co","disabled":true}}}
+  "1":{"email":"sam@example.com","uuid":"u-sam","organizationUuid":"o-sam","organizationName":"sam@example.com's Organization"},
+  "2":{"email":"sam@work.example","uuid":"u-sam-work","organizationUuid":"o-example","organizationName":"Example Co"},
+  "3":{"email":"old@example.com","uuid":"u-old","organizationUuid":"o-old","organizationName":"Old Co","disabled":true}}}
 EOF
+# Claude Code is signed in to the first: that one is in use.
+printf '{"oauthAccount":{"accountUuid":"u-sam","organizationUuid":"o-sam"}}' >"$CLAUDE_CONFIG_DIR/.claude.json"
 claims=$(printf '{"email":"sam@example.com","https://api.openai.com/auth":{"chatgpt_plan_type":"plus"}}' | base64 -w0 | tr '+/' '-_' | tr -d '=')
 printf '{"tokens":{"access_token":"%s-codex","account_id":"acct-1","id_token":"e30.%s.sig"}}' "$marker" "$claims" >"$CODEX_HOME/auth.json"
 printf '{"opencode":{"key":"%s-opencode"}}' "$marker" >"$XDG_DATA_HOME/opencode/auth.json"

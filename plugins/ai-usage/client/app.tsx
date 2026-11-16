@@ -26,7 +26,8 @@ interface Plan {
   active?: boolean
   disabled?: boolean
   updated_ago: string
-  stale?: string
+  outdated?: boolean
+  note?: string
   session?: Window
   weekly?: Window
   monthly?: Window
@@ -57,9 +58,11 @@ function Meter(props: { label: string; window?: Window }) {
 function Account(props: { plan: Plan; several: boolean }) {
   const p = () => props.plan
   const [team, email] = (p().account || "").split(" · ")
-  const state = () => (p().active && props.several ? "In use" : p().disabled ? "Not used" : "")
+  const state = () => (p().disabled ? "Not used" : p().active && props.several ? "In use" : "")
+  // What's off about this reading: why it couldn't update, and how old the one shown is.
+  const note = () => [p().note, p().outdated && `updated ${p().updated_ago}`].filter(Boolean).join(" · ")
   return (
-    <div class="account">
+    <div class={["account", { outdated: p().outdated }]}>
       <Show when={p().account}>
         <div>
           <div class="who">
@@ -79,7 +82,10 @@ function Account(props: { plan: Plan; several: boolean }) {
           <span>{`$${p().extra!.used} of $${p().extra!.limit}`}</span>
         </div>
       </Show>
-      <Show when={p().alarm}>{(alarm) => <Problem warn={alarm().tone === "warn"} heading={alarm().text} />}</Show>
+      <Show when={note()}>
+        <div class="note">{note()}</div>
+      </Show>
+      <Show when={!p().outdated && p().alarm}>{(alarm) => <Problem warn={alarm().tone === "warn"} heading={alarm().text} />}</Show>
     </div>
   )
 }
@@ -88,7 +94,6 @@ function Provider(props: { plans: Plan[] }) {
   const p = () => props.plans[0]
   const mark = () => marks[p().id]
   const sub = () => [p().plan, p().account ? "" : on(p()), `updated ${p().updated_ago}`].filter(Boolean).join(" · ")
-  const stale = () => [...new Set(props.plans.map((r) => r.stale).filter(Boolean))]
   return (
     <section class="provider">
       <div class="heading">
@@ -101,9 +106,6 @@ function Provider(props: { plans: Plan[] }) {
       <div class="accounts">
         <For each={props.plans} keyed={(r) => r.account || r.id}>{(r) => <Account plan={r()} several={props.plans.length > 1} />}</For>
       </div>
-      <Show when={stale().length}>
-        <Problem warn heading={`Can't read ${p().title} now`} text={stale().join("; ")} />
-      </Show>
     </section>
   )
 }

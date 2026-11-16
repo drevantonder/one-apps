@@ -36,6 +36,7 @@
   white-space: nowrap;
 }
 .about,
+.note,
 .label,
 .state,
 .resets,
@@ -121,4 +122,9 @@
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
+}
+/* A reading that couldn't update is shown as it was, greyed. */
+.account.outdated .meter,
+.account.outdated .extra {
+  opacity: 0.5;
 }

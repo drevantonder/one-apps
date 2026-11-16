@@ -155,10 +155,10 @@ defmodule AIUsage do
   end
 
   # One provider's readings: the newest per account, from whichever machine read it, kept with the pace. Accounts
-  # that every machine that answered no longer has are let go; those a machine couldn't read now stay, with their
-  # age and why.
+  # that every machine that answered no longer has are let go; those a machine couldn't read now keep their last
+  # reading, with why in its note.
   defp merge(_db, _id, kept, %{problem: problem}, now),
-    do: Enum.map(kept, &Map.merge(&1, %{"stale" => problem, "now" => now}))
+    do: Enum.map(kept, &Map.merge(&1, %{"note" => "Couldn't update: #{problem}", "now" => now}))
 
   defp merge(db, id, kept, %{answers: answers}, now) do
     failed =
@@ -174,12 +174,14 @@ defmodule AIUsage do
     has = Enum.group_by(reads, fn {_machine, read} -> key(read) end, fn {machine, _read} -> machine end)
 
     unread =
-      for {machine, read} <- reads, read["error"], not counted?(read), into: %{} do
-        {key(read), "#{machine}: #{String.slice(read["error"], 0, 160)}"}
-      end
+      for {_machine, read} <- reads, read["error"], into: %{}, do: {key(read), String.slice(read["error"], 0, 160)}
 
+    # Each account once, a machine that read its windows before one that didn't read it (it's switched off there).
     counted =
-      reads |> Enum.filter(fn {_machine, read} -> counted?(read) end) |> Enum.uniq_by(fn {_, read} -> key(read) end)
+      reads
+      |> Enum.reject(fn {_machine, read} -> read["error"] end)
+      |> Enum.sort_by(fn {_machine, read} -> if counted?(read), do: 0, else: 1 end)
+      |> Enum.uniq_by(fn {_, read} -> key(read) end)
 
     results =
       for {machine, read} <- counted do
@@ -213,7 +215,7 @@ defmodule AIUsage do
           "models" => read["models"] || [],
           "pace" => paces,
           "extra" => if(is_map(read["extra"]) and read["extra"]["limit"] != nil, do: read["extra"]),
-          "note" => read["error"]
+          "note" => read["note"]
         }
 
         query(
@@ -255,13 +257,28 @@ defmodule AIUsage do
         gone?.(r),
         do: query(db, "delete from readings where provider = ? and account = ?", [id, r["account"]])
 
+    # One that couldn't be read keeps its last reading, with why; it isn't in use while another one is.
+    in_use = Enum.any?(results, & &1["active"])
+
     left =
       for r <- kept, not MapSet.member?(seen, r["account"]), not gone?.(r) do
         why = unread[r["account"]] || failed[r["machine"]]
-        r |> Map.put("now", now) |> then(&if(why, do: Map.put(&1, "stale", why), else: &1))
+        r = Map.put(r, "now", now)
+
+        if why do
+          r = Map.merge(r, %{"note" => "Couldn't update: #{why}", "active" => r["active"] and not in_use})
+          update = "update readings set note = ?, active = ? where provider = ? and account = ? and at = ?"
+          query(db, update, [r["note"], r["active"], id, r["account"], r["at"]])
+          r
+        else
+          r
+        end
       end
 
-    Enum.sort_by(results ++ left, &{if(&1["active"], do: 0, else: 1), &1["weekly_used"] || 0})
+    Enum.sort_by(
+      results ++ left,
+      &{if(&1["active"], do: 0, else: if(&1["disabled"], do: 2, else: 1)), &1["weekly_used"] || 0}
+    )
   end
 
   defp key(read), do: read["account"] || read["email"] || ""
@@ -274,7 +291,7 @@ defmodule AIUsage do
     newest = """
     select r.* from (select account, max(at) as newest from readings where provider = ? and at <= ? group by account) l
     cross join readings r on r.provider = ? and r.account = l.account and r.at = l.newest
-    order by r.active desc, r.weekly_used
+    order by r.active desc, r.disabled, r.weekly_used
     """
 
     for r <- query(db, newest, [provider, before, provider]) do
@@ -489,7 +506,7 @@ defmodule AIUsage do
   defp section(reads, now) do
     [p | others] = reads
     title = @providers[p["provider"]].title
-    account = if p["account"] != "", do: p["account"] <> if(others != [], do: ", in use", else: "")
+    account = if p["account"] != "", do: p["account"] <> if(others != [] and p["active"], do: ", in use", else: "")
     on = if p["machines"] != [], do: "on " <> Enum.join(p["machines"], ", ")
     head = [title, account, p["plan"], on] |> Enum.reject(&(&1 in [nil, ""])) |> Enum.join(" · ")
     steered = steer(p["models"])
@@ -497,18 +514,17 @@ defmodule AIUsage do
     other =
       for o <- others do
         state =
-          if (o["weekly_used"] || 0) >= 100,
-            do: "out, back #{resets(o["weekly_resets"], now)}",
-            else: "#{left(o["weekly_used"] || 0)}% weekly left"
+          cond do
+            o["disabled"] -> "not used"
+            o["weekly_used"] == nil -> nil
+            o["weekly_used"] >= 100 -> "out, back #{resets(o["weekly_resets"], now)}"
+            true -> "#{left(o["weekly_used"])}% weekly left"
+          end
 
-        o["account"] <>
-          " " <>
-          state <>
-          if(o["disabled"], do: ", not in rotation", else: "") <>
-          if(o["stale"], do: ", read #{ago(o["at"], now)}", else: "")
+        [o["account"], state, o["note"], now - o["at"] > @fresh && "read #{ago(o["at"], now)}"]
+        |> Enum.reject(&(&1 in [nil, false, ""]))
+        |> Enum.join(", ")
       end
-
-    problems = reads |> Enum.map(& &1["stale"]) |> Enum.reject(&is_nil/1) |> Enum.uniq()
 
     [
       head,
@@ -517,10 +533,9 @@ defmodule AIUsage do
       window_text("Monthly", p["monthly_used"], p["monthly_resets"], nil, now),
       p["extra"] && "Extra usage $#{p["extra"]["used"]} of $#{p["extra"]["limit"]} this month",
       if(steered != "" and not String.ends_with?(steered, "any model fine"), do: steered),
-      p["note"] && "Note: #{p["note"]}",
-      if(other != [], do: "Other accounts: " <> Enum.join(other, "; ")),
+      p["note"],
       if(now - p["at"] > @fresh, do: "read #{ago(p["at"], now)}"),
-      if(problems != [], do: "Couldn't read it now: " <> Enum.join(problems, "; "))
+      if(other != [], do: "Other accounts: " <> Enum.join(other, "; "))
     ]
     |> Enum.reject(&(&1 in [nil, false]))
     |> Enum.join("\n")
@@ -548,7 +563,8 @@ defmodule AIUsage do
       plan: p["plan"],
       machines: p["machines"],
       updated_ago: ago(p["at"], now),
-      stale: p["stale"],
+      outdated: now - p["at"] > @fresh,
+      note: p["note"],
       session: meter(p["session_used"], p["session_resets"], p["pace"]["session"], now),
       weekly: meter(p["weekly_used"], p["weekly_resets"], p["pace"]["weekly"], now),
       monthly: if(p["monthly_used"] != nil, do: meter(p["monthly_used"], p["monthly_resets"], nil, now)),

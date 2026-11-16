@@ -5,7 +5,8 @@ description: Read before choosing a model for heavy work, or when the user asks 
 
 `status` is every AI plan's limits, in the providers' own words: what's left of each window (session, weekly,
 monthly, and Claude's per-model ones), the pace against even use, and whether it lasts until it resets. Each
-Claude account is apart, the one in use first, with which pool to spend. A reading under 5 minutes old is
+Claude account is apart, the one Claude Code is signed in to first, with which pool to spend. One switched off in
+claude-swap says "not used" and isn't read; one that couldn't update keeps its last reading, with why and its age. A reading under 5 minutes old is
 answered as it is; an older one is read again from every machine. `provider` narrows it to one, and `device` to
 one machine.
 

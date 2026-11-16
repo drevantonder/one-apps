@@ -6,7 +6,9 @@ defmodule AIUsage.Reader do
   never leaves it, not in an answer, a log or an error.
 
   It only reads, and never renews a sign-in: renewing one would sign out the tool it belongs to. One whose access
-  token ran out says so, and renews the next time its tool is used.
+  token ran out says so, and renews the next time its tool is used. An account claude-swap has switched off isn't
+  read, and one its provider rate limits isn't asked again until the provider's `retry-after` has passed: its
+  process keeps when each may be asked again.
   """
   use GenServer
   @behaviour OneCore.Service
@@ -25,15 +27,17 @@ defmodule AIUsage.Reader do
   end
 
   @doc """
-  Every plan signed in here, each read from its provider: `provider`, `account`, `email`, `active`, `disabled`,
-  `plan`, and its `session`, `weekly` and `monthly` windows (`used` percent, `resets_at` in milliseconds), its
-  per-model `models` and its `extra` usage, or an `error` saying why it couldn't be read.
+  Every plan signed in here, each read from its provider: `provider`, `account`, `email`, `active` (the one its tool
+  is signed in to now), `disabled`, `plan`, and its `session`, `weekly` and `monthly` windows (`used` percent,
+  `resets_at` in milliseconds), its per-model `models`, its `extra` usage and a `note` ("Plan ended"), or an `error`
+  saying why it couldn't be read. A disabled account has no windows: it isn't read.
   """
-  def usage(_service) do
+  def usage(service) do
     accounts = accounts()
+    held = GenServer.call(service, :held)
 
     accounts
-    |> Task.async_stream(&reading/1, timeout: 20_000, on_timeout: :kill_task)
+    |> Task.async_stream(&reading(&1, held, service), timeout: 20_000, on_timeout: :kill_task)
     |> Enum.zip(accounts)
     |> Enum.map(fn
       {{:ok, read}, _account} -> read
@@ -42,7 +46,14 @@ defmodule AIUsage.Reader do
   end
 
   @impl GenServer
-  def init(_), do: {:ok, nil}
+  def init(_), do: {:ok, %{}}
+
+  # When each rate-limited account may be asked again, in milliseconds.
+  @impl GenServer
+  def handle_call(:held, _from, held), do: {:reply, held, held}
+
+  @impl GenServer
+  def handle_cast({:hold, key, until}, held), do: {:noreply, Map.put(held, key, until)}
 
   # What's said of an account, without its token.
   defp said(a) do
@@ -63,15 +74,29 @@ defmodule AIUsage.Reader do
     }
   end
 
-  defp reading(a) do
-    if a.expires_at && a.expires_at < now() do
-      Map.put(said(a), "error", "its sign-in ran out #{ago(a.expires_at)} ago; it renews when #{a.tool} is next used")
-    else
-      try do
-        Map.merge(said(a), fetch(a))
-      rescue
-        error in RuntimeError -> Map.put(said(a), "error", error.message)
-      end
+  defp reading(a, held, service) do
+    key = {a.provider, a.email, a.org}
+
+    cond do
+      a.disabled ->
+        said(a)
+
+      Map.get(held, key, 0) > now() ->
+        Map.put(said(a), "error", "rate limited by #{title(a.provider)}")
+
+      a.expires_at && a.expires_at < now() ->
+        Map.put(said(a), "error", "its sign-in ran out #{ago(a.expires_at)} ago; it renews when #{a.tool} is next used")
+
+      true ->
+        try do
+          Map.merge(said(a), fetch(a))
+        rescue
+          error in RuntimeError -> Map.put(said(a), "error", error.message)
+        catch
+          {:rate_limited, seconds} ->
+            if seconds, do: GenServer.cast(service, {:hold, key, now() + seconds * 1000})
+            Map.put(said(a), "error", "rate limited by #{title(a.provider)}")
+        end
     end
   end
 
@@ -136,8 +161,11 @@ defmodule AIUsage.Reader do
 
   # claude-swap's accounts in its rotation order, from its sequence.json, each one's credentials from its own file
   # (base64'd JSON) or, on a Mac, its Keychain item. Its folder is $XDG_DATA_HOME/claude-swap, or on a Mac
-  # ~/.claude-swap-backup.
+  # ~/.claude-swap-backup. The active one is the one Claude Code is signed in to now, by its account and organization.
   defp claude_swap do
+    {_config, settings} = claude_config()
+    me = (json(settings) || %{})["oauthAccount"] || %{}
+
     dir =
       Enum.find([Path.join(data_home(), "claude-swap"), Path.join(home(), ".claude-swap-backup")], fn dir ->
         File.regular?(Path.join(dir, "sequence.json"))
@@ -159,7 +187,9 @@ defmodule AIUsage.Reader do
           tool: "Claude Code",
           email: email,
           org: meta["organizationName"] || "",
-          active: to_string(seq["activeAccountNumber"]) == n,
+          active:
+            me["accountUuid"] != nil and meta["uuid"] == me["accountUuid"] and
+              meta["organizationUuid"] == me["organizationUuid"],
           disabled: meta["disabled"] == true,
           token: token,
           expires_at: expires_at
@@ -183,14 +213,18 @@ defmodule AIUsage.Reader do
     end
   end
 
-  # Claude Code's own sign-in: .credentials.json in its folder (on a Mac, its Keychain item), and who it is from
-  # .claude.json, which sits in that folder when CLAUDE_CONFIG_DIR names one and in the home folder otherwise.
+  # Claude Code's folder, and its .claude.json, which says who it's signed in as: in that folder when
+  # CLAUDE_CONFIG_DIR names one, and in the home folder otherwise.
+  defp claude_config do
+    case env("CLAUDE_CONFIG_DIR") do
+      nil -> {Path.join(home(), ".claude"), Path.join(home(), ".claude.json")}
+      dir -> {dir, Path.join(dir, ".claude.json")}
+    end
+  end
+
+  # Claude Code's own sign-in: .credentials.json in its folder (on a Mac, its Keychain item).
   defp claude_code do
-    {config, settings} =
-      case env("CLAUDE_CONFIG_DIR") do
-        nil -> {Path.join(home(), ".claude"), Path.join(home(), ".claude.json")}
-        dir -> {dir, Path.join(dir, ".claude.json")}
-      end
+    {config, settings} = claude_config()
 
     text =
       case File.read(Path.join(config, ".credentials.json")) do
@@ -297,12 +331,20 @@ defmodule AIUsage.Reader do
       {:ok, %{status: status}} when status in [401, 403] ->
         raise "its sign-in was refused; it renews when #{a.tool} is next used"
 
-      {:ok, %{status: 429}} ->
-        raise "the provider is rate limiting reads"
+      {:ok, %{status: 429} = response} ->
+        throw({:rate_limited, retry_after(response)})
 
       _ ->
         raise "#{title(a.provider)} couldn't be reached"
     end
+  end
+
+  # The seconds a provider's `retry-after` asks to wait, when it gives them as a number.
+  defp retry_after(response) do
+    with [value | _] <- Req.Response.get_header(response, "retry-after"),
+         {seconds, ""} <- Integer.parse(value),
+         do: seconds,
+         else: (_ -> nil)
   end
 
   defp window(used, resets), do: %{"used" => number(used), "resets_at" => ms(resets)}
@@ -340,8 +382,11 @@ defmodule AIUsage.Reader do
       end
 
     extra = j["extra_usage"]
+    # A Claude plan always has a session and a weekly window; an account without either has none.
+    ended = j["five_hour"] == nil and j["seven_day"] == nil
 
     %{
+      "note" => if(ended, do: "Plan ended"),
       "session" => w.("five_hour"),
       "weekly" => w.("seven_day"),
       "monthly" => window(nil, nil),
