@@ -4,6 +4,7 @@ description: Read when the user wants a Mac kept online with its lid shut, or as
 metadata:
   subtitle: "Keep a Mac online"
   about: "Keeps a Mac awake while it's plugged in, even with its lid shut, so your other devices and your AI can reach it. On battery it sleeps as usual."
+  category: Devices
 ---
 
 A Mac with Stay Awake on doesn't sleep while it's plugged in, even with its lid shut, so your other devices and

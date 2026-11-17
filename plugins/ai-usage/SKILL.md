@@ -4,6 +4,7 @@ description: Read before choosing a model for heavy work, or when the user asks 
 metadata:
   subtitle: "What's left of your AI plans"
   about: "See what's left of each AI plan, like Claude and Codex, and whether it lasts until it resets."
+  category: AI
 ---
 
 `status` is every AI plan's limits, in the providers' own words: what's left of each window (session, weekly,

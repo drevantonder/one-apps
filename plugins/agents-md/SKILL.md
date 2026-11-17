@@ -4,6 +4,7 @@ description: Read before reading or changing the instructions (AGENTS.md, CLAUDE
 metadata:
   subtitle: "Rules for your AI"
   about: "The instructions and skills every AI tool on every device follows, like Claude Code and Codex, written in one place. Every change is kept, so you can go back."
+  category: AI
 ---
 
 `get` and `set` read and replace the AGENTS.md every agent tool on every device gets (Claude Code as its

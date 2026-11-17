@@ -4,6 +4,7 @@ description: Read before reading, searching or sending the user's Facebook Messe
 metadata:
   subtitle: "Your Messenger chats"
   about: "Your AI reads and searches your Facebook Messenger chats, and sends a message when you ask."
+  category: Communication
 ---
 
 Messenger is the user's Facebook Messenger, read through messenger.com in a browser on one of their devices. Each

@@ -4,6 +4,7 @@ description: Read at the start of every session, then run agent-memory_wake. You
 metadata:
   subtitle: "One memory for all your AI"
   about: "Your AI remembers who you are, what you decided and what it tried, across every session, device and AI tool you use."
+  category: AI
 ---
 
 ## Memory

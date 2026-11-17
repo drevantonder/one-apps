@@ -4,6 +4,7 @@ description: Read when the user wants someone's number, email or address from th
 metadata:
   subtitle: "Your Mac's contacts"
   about: "Your AI finds anyone's number, email or address in Apple Contacts, through your Mac."
+  category: Productivity
 ---
 
 Contacts are the user's Apple Contacts, through their Mac. `search` finds people by name, email address or phone

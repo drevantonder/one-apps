@@ -4,6 +4,7 @@ description: Read before asking an AI model something for a person or a plugin (
 metadata:
   subtitle: "Every AI model in one place"
   about: "Use AI models on your own machines or online, all in one place. Add your AI keys once, and choose which model does which job."
+  category: AI
 ---
 
 AI Gateway asks AI models, text and images, in one shape whatever runs them: on the person's own machines, at
