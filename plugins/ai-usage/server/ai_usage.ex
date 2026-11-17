@@ -36,6 +36,9 @@ defmodule AIUsage do
   ]
 
   @impl true
+  def icon, do: "client/icon.svg"
+
+  @impl true
   def uses, do: ["database"]
 
   # Fresh readings every five minutes, so the pace has readings far enough apart to say when a window runs out.
@@ -44,7 +47,7 @@ defmodule AIUsage do
 
   @impl true
   def apps,
-    do: [%{name: "AI Usage", page: "client/index.html", icon: "client/icon.svg", category: "agents", subject: "user"}]
+    do: [%{name: "AI Usage", page: "client/index.html", category: "agents", subject: "user"}]
 
   @percent %{type: ["number", "null"], description: "Percent"}
   # One window of a plan: how much of it is used and left, when it resets, and its pace.

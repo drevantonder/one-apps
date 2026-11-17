@@ -22,10 +22,13 @@ defmodule AiGateway do
   @timeout 300
 
   @impl true
+  def icon, do: "client/icon.svg"
+
+  @impl true
   def uses, do: ["vault"]
 
   @impl true
-  def apps, do: [%{name: "AI Gateway", page: "client/index.html", icon: "client/icon.svg", category: "coding"}]
+  def apps, do: [%{name: "AI Gateway", page: "client/index.html", category: "coding"}]
 
   @impl true
   def tools do

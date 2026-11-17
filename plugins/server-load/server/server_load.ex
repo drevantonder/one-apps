@@ -14,7 +14,10 @@ defmodule ServerLoad do
   @busy %{type: "array", items: %{type: "integer"}, description: "Percent busy every 5 seconds over the last two minutes, oldest first"}
 
   @impl true
-  def apps, do: [%{name: "Device Activity", page: "client/index.html", icon: "client/icon.svg", category: "devices"}]
+  def icon, do: "client/icon.svg"
+
+  @impl true
+  def apps, do: [%{name: "Device Activity", page: "client/index.html", category: "devices"}]
 
   @impl true
   def widgets, do: [%{name: "Device Activity", tool: "widget", sizes: ["4x4", "4x2", "2x2"]}]
