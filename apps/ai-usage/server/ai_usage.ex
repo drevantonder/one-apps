@@ -157,6 +157,8 @@ defmodule AIUsage do
         end)
       end)
 
+    # A reading made now is new on its screen; one that couldn't be made changes nothing there.
+    if Enum.any?(all, &(&1["at"] == now)), do: OneCore.Call.changed(call)
     problem = if all == [] and response, do: response[:problem]
 
     %{at: now, problem: problem, providers: Enum.map(all, &json(&1, now))}
