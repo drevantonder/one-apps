@@ -4,7 +4,7 @@ defmodule AppleContacts do
 
   # It has no app, so it says how it's called and drawn where it's shown, as the App Store.
   @impl true
-  def title, do: "Contacts"
+  def title, do: "Apple Contacts"
 
   @impl true
   def icon, do: "icon.png"

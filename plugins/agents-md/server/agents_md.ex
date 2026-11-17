@@ -21,6 +21,9 @@ defmodule AgentsMd do
   @named %{type: "object", properties: %{name: %{type: "string"}, id: @revision}, required: ["name", "id"]}
 
   @impl true
+  def title, do: "Agent Instructions"
+
+  @impl true
   def icon, do: "icon.svg"
 
   @impl true

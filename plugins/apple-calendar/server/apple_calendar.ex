@@ -4,7 +4,7 @@ defmodule AppleCalendar do
 
   # It has no app, so it says how it's called and drawn where it's shown, as the App Store.
   @impl true
-  def title, do: "Calendar"
+  def title, do: "Apple Calendar"
 
   @impl true
   def icon, do: "icon.png"
