@@ -22,7 +22,13 @@ defmodule Messenger do
   @time %{type: "string", description: "As Messenger shows it, like 11:02 AM or Mon"}
 
   @impl true
-  def uses, do: ["database", "vault"]
+  def requires do
+    %{
+      "core" => "~> 0.18.0",
+      "database" => "to keep your messages",
+      "vault" => "to keep your Messenger sign-in"
+    }
+  end
 
   # Its page signs an account in, as sign_in's own: it's under Accounts in the Vault, not an app on a page.
   @impl true

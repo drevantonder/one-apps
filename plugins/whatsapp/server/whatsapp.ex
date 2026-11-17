@@ -69,7 +69,13 @@ defmodule WhatsApp do
   @link_states ~w(connecting connected disconnected restarting unreachable unlinked replaced)
 
   @impl true
-  def uses, do: ["database", "vault"]
+  def requires do
+    %{
+      "core" => "~> 0.18.0",
+      "database" => "to keep your messages",
+      "vault" => "to keep your WhatsApp sign-in"
+    }
+  end
 
   # Its page links a phone, as sign_in's own: it's under Accounts in the Vault, not an app on a page.
   @impl true

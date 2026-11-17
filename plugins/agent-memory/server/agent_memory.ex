@@ -29,7 +29,7 @@ defmodule AgentMemory do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def uses, do: ["database"]
+  def requires, do: %{"core" => "~> 0.18.0", "database" => "to keep your memory"}
 
   @impl true
   def apps, do: [%{name: "Agent Memory", page: "client/index.html", category: "agents"}]

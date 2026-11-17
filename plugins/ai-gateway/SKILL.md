@@ -34,9 +34,9 @@ or you name one as `model` because they asked for it.
   is `https://api.cloudflare.com/client/v4/accounts/<account id>/ai/v1`, the key is an API token that may use
   Workers AI, and the site is `api.cloudflare.com`.
 
-A plugin asks a model by using this plugin:
+A plugin asks a model by requiring this plugin:
 
-    def uses, do: ["ai-gateway"]
+    def requires, do: %{"ai-gateway" => "to sort your photos"}
 
     ai = OneCore.Call.plugin(call, "ai-gateway")
     ai.chat(call, %{"messages" => messages, "schema" => schema})["json"]

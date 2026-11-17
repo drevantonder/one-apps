@@ -25,7 +25,7 @@ defmodule AiGateway do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def uses, do: ["vault"]
+  def requires, do: %{"core" => "~> 0.18.0", "vault" => "to keep your AI keys"}
 
   @impl true
   def apps, do: [%{name: "AI Gateway", page: "client/index.html", category: "coding"}]
