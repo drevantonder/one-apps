@@ -299,14 +299,17 @@ defmodule AIUsage.Reader do
 
   defp go(key, email), do: account(%{provider: "opencodego", tool: "OpenCode", email: email, plan: "Go", token: key})
 
+  # `Sqlite` is the database app's NIF, which this app requires but isn't compiled with, so it's named at runtime
+  # and not in the source, which the compiler would warn about as undefined.
   defp opencode_db(path) do
-    {:ok, db} = Sqlite.open("file:#{path}?mode=ro")
+    sqlite = Module.concat([Sqlite])
+    {:ok, db} = sqlite.open("file:#{path}?mode=ro")
 
     with {:ok, [%{"value" => value}]} <-
-           Sqlite.query(db, "select value from credential where integration_id = 'opencode-go' limit 1", []),
+           sqlite.query(db, "select value from credential where integration_id = 'opencode-go' limit 1", []),
          {:ok, %{"key" => key}} <- JSON.decode(value) do
       email =
-        case Sqlite.query(db, "select email from account limit 1", []) do
+        case sqlite.query(db, "select email from account limit 1", []) do
           {:ok, [%{"email" => email}]} -> email || ""
           _ -> ""
         end
