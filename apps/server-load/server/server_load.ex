@@ -17,7 +17,7 @@ defmodule ServerLoad do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def entrypoints, do: [%{name: "Device Activity", page: "client/index.html", category: "devices"}]
+  def entrypoints, do: [%{name: "Device Activity", page: "client/index.html"}]
 
   @impl true
   def widgets, do: [%{name: "Device Activity", tool: "widget", sizes: ["4x4", "4x2", "2x2"]}]

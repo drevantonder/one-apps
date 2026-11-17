@@ -47,7 +47,7 @@ defmodule AIUsage do
 
   @impl true
   def entrypoints,
-    do: [%{name: "AI Usage", page: "client/index.html", category: "agents", subject: "user"}]
+    do: [%{name: "AI Usage", page: "client/index.html", subject: "user"}]
 
   @percent %{type: ["number", "null"], description: "Percent"}
   # One window of a plan: how much of it is used and left, when it resets, and its pace.

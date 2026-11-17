@@ -28,7 +28,7 @@ defmodule AiGateway do
   def requires, do: %{"core" => "~> 0.19.0", "vault" => "to keep your AI keys"}
 
   @impl true
-  def entrypoints, do: [%{name: "AI Gateway", page: "client/index.html", category: "coding"}]
+  def entrypoints, do: [%{name: "AI Gateway", page: "client/index.html"}]
 
   @impl true
   def tools do

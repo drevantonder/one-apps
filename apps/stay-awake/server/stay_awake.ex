@@ -24,7 +24,7 @@ defmodule StayAwake do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def entrypoints, do: [%{name: "Stay Awake", page: "client/index.html", category: "devices"}]
+  def entrypoints, do: [%{name: "Stay Awake", page: "client/index.html"}]
 
   @impl true
   def widgets, do: [%{name: "Stay Awake", tool: "widget", sizes: ["2x2", "4x2"]}]
