@@ -45,14 +45,18 @@ defmodule ServerLoad.Widget do
   defp spread(parts), do: Enum.intersperse(parts, %{part: "column", grow: true, gap: 0, parts: []})
 
   defp label(text), do: %{part: "text", text: text, size: "xs", weight: "medium", tone: "muted", lines: 1}
-  defp cell(width, part), do: %{part: "column", width: width, align: "center", parts: List.wrap(part)}
+  # A column of the stats, dropped where the widget is too narrow for it (`from`, in the UI library's widget).
+  defp cell(width, part, from \\ nil) do
+    cell = %{part: "column", width: width, align: "center", parts: List.wrap(part)}
+    if from, do: Map.put(cell, :from, from), else: cell
+  end
   defp name(parts), do: %{part: "column", grow: true, gap: 1, parts: parts}
 
   defp header do
     stats = [
       cell(@columns.ram, label("RAM")),
-      cell(@columns.cpu, label("CPU")),
-      cell(@columns.gpu, label("GPU")),
+      cell(@columns.cpu, label("CPU"), "sm"),
+      cell(@columns.gpu, label("GPU"), "md"),
       cell(@columns.disk, label("DISK"))
     ]
 
@@ -71,8 +75,8 @@ defmodule ServerLoad.Widget do
 
     stats = [
       cell(@columns.ram, ring(device["memory"], @columns.ring)),
-      cell(@columns.cpu, spark(device["cpu"], nil, @columns.cpu, "CPU")),
-      cell(@columns.gpu, spark(device["gpu"], "muted", @columns.gpu, "GPU")),
+      cell(@columns.cpu, spark(device["cpu"], nil, @columns.cpu, "CPU"), "sm"),
+      cell(@columns.gpu, spark(device["gpu"], "muted", @columns.gpu, "GPU"), "md"),
       cell(@columns.disk, bar(device["disk"], @columns.disk))
     ]
 
@@ -93,8 +97,18 @@ defmodule ServerLoad.Widget do
       memory = container["memory"] && with_limit(container["memory"], device["memory"]["total"])
       about = %{part: "text", text: "On #{device["name"]}", size: "xs", tone: "muted", lines: 1}
       icon = %{part: "icon", path: @icons["container"], badge: @logos["linux"], width: @columns.icon}
-      width = @columns.ram + @columns.cpu + @columns.gpu + @columns.disk + 3 * @columns.gap
-      stats = %{part: "row", width: width, parts: [cell(@columns.ram, ring(memory, @columns.ring))]}
+
+      # Empty cells keep the ring in the RAM column, wherever the others are dropped.
+      stats = %{
+        part: "row",
+        gap: @columns.gap,
+        parts: [
+          cell(@columns.ram, ring(memory, @columns.ring)),
+          cell(@columns.cpu, [], "sm"),
+          cell(@columns.gpu, [], "md"),
+          cell(@columns.disk, [])
+        ]
+      }
       %{part: "row", gap: 10, parts: [icon, name([text(container["name"]), about]), stats]}
     end
   end
