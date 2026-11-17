@@ -24,6 +24,10 @@ defmodule AiGateway do
   @impl true
   def icon, do: "client/icon.svg"
 
+  # Its data is everyone's together: the network's models and jobs, and each person's own beside them (`jobs/<who>`).
+  @impl true
+  def own, do: :installed
+
   @impl true
   def requires, do: %{"core" => ">= 0.20.0", "vault" => "to keep your AI keys"}
 

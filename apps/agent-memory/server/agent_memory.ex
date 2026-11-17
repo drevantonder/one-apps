@@ -28,6 +28,10 @@ defmodule AgentMemory do
   @impl true
   def icon, do: "client/icon.svg"
 
+  # Its data is the memory of whoever it's installed for: the network's is every agent's in it, and one installed for a person is theirs alone.
+  @impl true
+  def own, do: :installed
+
   @impl true
   def requires, do: %{"core" => ">= 0.20.0", "database" => "to keep your memory"}
 

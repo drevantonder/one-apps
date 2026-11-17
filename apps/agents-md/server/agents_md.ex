@@ -26,6 +26,10 @@ defmodule AgentsMd do
   @impl true
   def icon, do: "icon.svg"
 
+  # Its data is the instructions and skills of whoever it's installed for: the network's reach every agent in it.
+  @impl true
+  def own, do: :installed
+
   @impl true
   def requires, do: %{"core" => ">= 0.20.0", "database" => "to keep your instructions and skills"}
 
