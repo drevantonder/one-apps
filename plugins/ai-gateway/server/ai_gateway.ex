@@ -25,7 +25,7 @@ defmodule AiGateway do
   def uses, do: ["vault"]
 
   @impl true
-  def apps, do: [%{name: "AI Gateway", page: "client/index.html", icon: "client/icon.svg"}]
+  def apps, do: [%{name: "AI Gateway", page: "client/index.html", icon: "client/icon.svg", category: "coding"}]
 
   @impl true
   def tools do

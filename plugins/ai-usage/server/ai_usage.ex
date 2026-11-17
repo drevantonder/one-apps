@@ -43,7 +43,8 @@ defmodule AIUsage do
   def jobs, do: [%{tool: "status", every: 300}]
 
   @impl true
-  def apps, do: [%{name: "AI Usage", page: "client/index.html", icon: "client/icon.svg"}]
+  def apps,
+    do: [%{name: "AI Usage", page: "client/index.html", icon: "client/icon.svg", category: "agents", subject: "user"}]
 
   @percent %{type: ["number", "null"], description: "Percent"}
   # One window of a plan: how much of it is used and left, when it resets, and its pace.

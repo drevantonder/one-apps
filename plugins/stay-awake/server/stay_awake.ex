@@ -21,7 +21,7 @@ defmodule StayAwake do
   }
 
   @impl true
-  def apps, do: [%{name: "Stay Awake", page: "client/index.html", icon: "client/icon.svg"}]
+  def apps, do: [%{name: "Stay Awake", page: "client/index.html", icon: "client/icon.svg", category: "devices"}]
 
   @impl true
   def widgets, do: [%{name: "Stay Awake", tool: "widget", sizes: ["2x2", "4x2"]}]

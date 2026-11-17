@@ -29,7 +29,7 @@ defmodule AgentMemory do
   def uses, do: ["database"]
 
   @impl true
-  def apps, do: [%{name: "Agent Memory", page: "client/index.html", icon: "client/icon.svg"}]
+  def apps, do: [%{name: "Agent Memory", page: "client/index.html", icon: "client/icon.svg", category: "agents"}]
 
   @block %{type: "string", description: "a block id, as wake or a nap prompt gives it, like 16-31"}
   # One line of the memory: a memory (`hi` one past `lo`, with its `id` and `date`), or the summary of a block.
