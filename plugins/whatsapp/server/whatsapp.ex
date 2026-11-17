@@ -71,12 +71,19 @@ defmodule WhatsApp do
   @impl true
   def uses, do: ["database", "vault"]
 
-  # Its page links a phone, as sign_in's own: it's in Accounts, not an app on a page.
+  # Its page links a phone, as sign_in's own: it's under Accounts in the Vault, not an app on a page.
   @impl true
   def title, do: "WhatsApp"
 
   @impl true
   def icon, do: "icon.png"
+
+  # Each account is an item in its person's Vault, "WhatsApp <account>", which the Vault lists under Accounts.
+  @impl true
+  def hooks, do: ["vault.types"]
+
+  @impl true
+  def hook("vault.types", _about, _call), do: [%{name: "WhatsApp account", prefix: "WhatsApp ", account: true}]
 
   @impl true
   def tools do

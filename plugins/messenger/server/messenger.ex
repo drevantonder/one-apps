@@ -24,12 +24,19 @@ defmodule Messenger do
   @impl true
   def uses, do: ["database", "vault"]
 
-  # Its page signs an account in, as sign_in's own: it's in Accounts, not an app on a page.
+  # Its page signs an account in, as sign_in's own: it's under Accounts in the Vault, not an app on a page.
   @impl true
   def title, do: "Messenger"
 
   @impl true
   def icon, do: "icon.png"
+
+  # Each account is an item in its person's Vault, "Messenger <account>", which the Vault lists under Accounts.
+  @impl true
+  def hooks, do: ["vault.types"]
+
+  @impl true
+  def hook("vault.types", _about, _call), do: [%{name: "Messenger account", prefix: "Messenger ", account: true}]
 
   @impl true
   def tools do
