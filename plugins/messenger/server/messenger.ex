@@ -36,7 +36,8 @@ defmodule Messenger do
   def hooks, do: ["vault.types"]
 
   @impl true
-  def hook("vault.types", _about, _call), do: [%{name: "Messenger account", prefix: "Messenger ", account: true}]
+  def hook("vault.types", _about, _call),
+    do: [%{name: "Messenger account", section: "Accounts", prefix: "Messenger ", create: %{page: "client/sign-in.html"}}]
 
   @impl true
   def tools do
@@ -318,14 +319,31 @@ defmodule Messenger do
 
     case OneCore.Service.call(call, Browser, :run, [call.subject, account, command]) do
       %{"ok" => response} ->
-        transaction(call, &query(&1, "update accounts set why = null where name = ? and why is not null", [account]))
+        back = transaction(call, &query(&1, "update accounts set why = null where name = ? and why is not null returning name", [account]))
+        if back != [], do: OneCore.Call.plugin(call, "vault").state(call, item(account), :ready)
         response
 
+      # Messenger signed it out: no messages are read or sent until its person signs in again, so its item says so
+      # in the Vault, with Sign In, and they're notified, once.
       %{"code" => "signed_out", "error" => why} ->
-        transaction(
-          call,
-          &query(&1, "update accounts set why = ? where name = ?", ["Messenger signed it out: sign in again", account])
-        )
+        newly =
+          transaction(
+            call,
+            &query(&1, "update accounts set why = ? where name = ? and why is null returning name", ["Messenger signed it out: sign in again", account])
+          )
+
+        if newly != [] do
+          OneCore.Call.plugin(call, "vault").state(call, item(account), :action_required, "Messenger signed it out", %{
+            label: "Sign In",
+            page: "client/sign-in.html##{account}"
+          })
+
+          OneCore.Call.tool(call, "notifications", "send", %{
+            "title" => "Messenger signed #{account} out",
+            "text" => "Its messages stop until you sign in again, in Vault.",
+            "app" => "vault"
+          })
+        end
 
         raise why
 
@@ -379,6 +397,8 @@ defmodule Messenger do
           [account, System.os_time(:second)]
         )
       end)
+
+      vault.state(call, item(account), :ready)
     end
 
     :ok

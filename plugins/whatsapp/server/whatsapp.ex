@@ -83,7 +83,8 @@ defmodule WhatsApp do
   def hooks, do: ["vault.types"]
 
   @impl true
-  def hook("vault.types", _about, _call), do: [%{name: "WhatsApp account", prefix: "WhatsApp ", account: true}]
+  def hook("vault.types", _about, _call),
+    do: [%{name: "WhatsApp account", section: "Accounts", prefix: "WhatsApp ", create: %{page: "client/sign-in.html"}}]
 
   @impl true
   def tools do
@@ -590,12 +591,14 @@ defmodule WhatsApp do
         end
       end)
 
+    # A link that's new is ready, whatever its account needed of its person before.
     key =
       if live == :here do
         Base.decode64!(vault.value(call, item(account), "key"))
       else
         key = :crypto.strong_rand_bytes(32)
         vault.keep(call, item(account), %{"key" => Base.encode64(key)})
+        vault.state(call, item(account), :ready)
         key
       end
 
@@ -622,10 +625,21 @@ defmodule WhatsApp do
   end
 
   @doc false
-  # A link that ended by itself: unlinked from the phone, which deletes what was kept for it as signing out does,
-  # or replaced by another copy of it, which stops it here.
+  # A link that ended by itself: unlinked from the phone, whose session is then no use, or replaced by another copy of
+  # it, which stops it here. An account unlinked on the phone gets no messages until its person links it again, so
+  # its item says so in the Vault, with Sign In, and they're notified: what it kept stays, to carry on from.
   def ended(call, account, how) do
-    if how == "unlinked", do: forget(call, account)
+    if how == "unlinked" do
+      OneCore.Artifact.remove(call.own, "sessions/#{account}")
+      vault(call).state(call, item(account), :action_required, "Unlinked on your phone", %{label: "Sign In", page: "client/sign-in.html#+#{account}"})
+
+      OneCore.Call.tool(call, "notifications", "send", %{
+        "title" => "WhatsApp +#{account} was unlinked",
+        "text" => "Its messages stop until you link it again, in Vault.",
+        "app" => "vault"
+      })
+    end
+
     transaction(call, &query(&1, "update links set state = ?, at = ? where account = ?", [how, now(), account]))
     :ok
   end
