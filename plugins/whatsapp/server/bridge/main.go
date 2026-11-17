@@ -300,8 +300,10 @@ func (l *link) pair(ctx context.Context, phone string) (any, error) {
 		for item := range qrs {
 			if item.Event == whatsmeow.QRChannelEventCode {
 				emit(qrEvent(item.Code))
+			} else if item.Event == whatsmeow.QRChannelTimeout.Event {
+				emit(map[string]any{"event": "unpaired", "ran_out": true})
 			} else if item.Event != "success" {
-				emit(map[string]any{"event": "unpaired", "why": "the codes ran out before the phone linked"})
+				emit(map[string]any{"event": "unpaired", "why": unpaired(item)})
 			}
 		}
 	}()
@@ -314,6 +316,20 @@ func (l *link) pair(ctx context.Context, phone string) (any, error) {
 		answer["code"] = code
 	}
 	return answer, nil
+}
+
+// unpaired is why WhatsApp wouldn't link the phone, as whatsmeow names it.
+func unpaired(item whatsmeow.QRChannelItem) string {
+	switch item.Event {
+	case whatsmeow.QRChannelClientOutdated.Event:
+		return "WhatsApp says this link is out of date"
+	case whatsmeow.QRChannelScannedWithoutMultidevice.Event:
+		return "The phone scanned it without linked devices switched on"
+	}
+	if item.Error != nil {
+		return item.Error.Error()
+	}
+	return "WhatsApp stopped linking: " + item.Event
 }
 
 func qrEvent(code string) map[string]any {

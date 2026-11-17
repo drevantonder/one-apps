@@ -66,6 +66,7 @@ defmodule WhatsApp do
     qr: %{type: "string", description: "The QR code to scan on the phone, drawn in text"},
     code: %{type: ["string", "null"], description: "The code to type on the phone instead, given phone"}
   }
+  @link_states ~w(connecting connected disconnected restarting unreachable unlinked replaced)
 
   @impl true
   def uses, do: ["database", "vault"]
@@ -95,11 +96,12 @@ defmodule WhatsApp do
                 type: "object",
                 properties: %{
                   account: %{type: "string", description: "Its number, +61..."},
-                  ok: %{type: "boolean", description: "Whether it's connected"},
+                  ok: %{type: "boolean", description: "Whether it's connected, or connecting by itself"},
+                  state: %{type: "string", enum: @link_states, description: "Where its link is"},
                   device: %{type: "string", description: "Where it's linked"},
                   why: %{type: "string", description: "Why it isn't connected"}
                 },
-                required: ["account", "ok", "device"]
+                required: ["account", "ok", "state", "device"]
               }
             }
           },
@@ -124,11 +126,12 @@ defmodule WhatsApp do
                   account: %{type: "string", description: "Its number, +61..."},
                   device: %{type: "string", description: "Where it's linked"},
                   connected: %{type: "boolean"},
+                  state: %{type: "string", enum: @link_states, description: "Where its link is"},
                   why: %{type: ["string", "null"], description: "Why it isn't connected"},
                   messages: %{type: "integer", description: "How many messages are kept"},
                   chats: %{type: "integer", description: "In how many chats"}
                 },
-                required: ["account", "device", "connected", "why", "messages", "chats"]
+                required: ["account", "device", "connected", "state", "why", "messages", "chats"]
               }
             }
           },
@@ -169,11 +172,19 @@ defmodule WhatsApp do
         name: "pairing",
         read_only: true,
         description:
-          "The QR code and phone code while a phone is linking, for the screen, or neither when none is.",
+          "Where linking a phone that sign_in started is, for the screen: starting, pairing (with the codes), linked (with its account), ran_out (the codes ran out before the phone scanned one), failed (with why), or none (nothing started there since its link last started).",
         inputs: %{type: "object", properties: %{device: @device}},
         outputs: %{
           type: "object",
-          properties: Map.put(@codes, :error, %{type: "string", description: "Why linking failed"})
+          properties: %{
+            state: %{type: "string", enum: ~w(none starting pairing linked ran_out failed)},
+            qr: %{type: ["string", "null"], description: "While pairing: the QR code to scan, as a PNG data URL"},
+            text: %{type: ["string", "null"], description: "While pairing: the QR code, drawn in text"},
+            code: %{type: ["string", "null"], description: "While pairing, given phone: the code to type on the phone instead"},
+            account: %{type: ["string", "null"], description: "Once linked: its number"},
+            why: %{type: ["string", "null"], description: "Why it failed"}
+          },
+          required: ["state"]
         }
       },
       %{
@@ -329,9 +340,11 @@ defmodule WhatsApp do
     accounts =
       for link <- links do
         device = OneCore.Service.name(link["server"]) || "a device"
-        %{connected: connected, why: why} = how(link, live, device)
+        %{connected: connected, state: state, why: why} = how(link, live, device)
 
-        %{account: "+" <> link["account"], ok: connected, device: device}
+        # On its way to connected by itself, it needs nothing of its person.
+        ok = connected or state in ~w(connecting restarting disconnected)
+        %{account: "+" <> link["account"], ok: ok, state: state, device: device}
         |> then(&if(why, do: Map.put(&1, :why, why), else: &1))
       end
 
@@ -387,11 +400,8 @@ defmodule WhatsApp do
   end
 
   def call("pairing", inputs, call) do
-    case OneCore.Service.call(call, Link, :pairing, [], device(call, inputs["device"])) do
-      %{"qr" => qr} = p when qr != nil -> %{qr: qr, code: p["code"]}
-      %{"why" => why} when why != nil -> %{error: why}
-      _ -> %{}
-    end
+    pairing = OneCore.Service.call(call, Link, :pairing, [call.subject], device(call, inputs["device"]))
+    Map.update(pairing, "account", nil, &(&1 && "+" <> &1))
   end
 
   def call("chats", inputs, call) do
@@ -524,6 +534,10 @@ defmodule WhatsApp do
     transaction(call, &query(&1, "delete from links where account = ?", [link["account"]]))
     %{account: "+" <> link["account"]}
   end
+
+  @doc false
+  # Something about linking changed: every app watching is told. For `WhatsApp.Link`.
+  def changed(call), do: OneCore.Call.changed(call)
 
   @doc false
   # The links this server holds, each with its session to carry on from. For `WhatsApp.Link`.
@@ -671,7 +685,7 @@ defmodule WhatsApp do
     for server <- Enum.uniq(for l <- links, l["state"] == nil, do: l["server"]), into: %{} do
       {server,
        try do
-         Map.new(OneCore.Service.call(call, Link, :links, [], server), &{&1["account"], &1["connected"]})
+         Map.new(OneCore.Service.call(call, Link, :links, [], server), &{&1["account"], &1["state"]})
        rescue
          error -> {:error, Exception.message(error)}
        end}
@@ -681,6 +695,7 @@ defmodule WhatsApp do
   defp how(%{"state" => "unlinked", "at" => at}, _live, _device),
     do: %{
       connected: false,
+      state: "unlinked",
       why:
         "WhatsApp unlinked it on #{day(at)}, from the phone or by itself, and what was kept is deleted: link it again"
     }
@@ -688,6 +703,7 @@ defmodule WhatsApp do
   defp how(%{"state" => "replaced", "at" => at}, _live, device),
     do: %{
       connected: false,
+      state: "replaced",
       why:
         "Stopped on #{device} on #{day(at)}, when another copy of this link connected elsewhere: sign it out, and link it again"
     }
@@ -695,12 +711,15 @@ defmodule WhatsApp do
   defp how(link, live, device) do
     case live[link["server"]] do
       {:error, _why} ->
-        %{connected: false, why: "#{device} isn't up, so it isn't connected now"}
+        %{connected: false, state: "unreachable", why: "#{device} isn't up, so it isn't connected now"}
 
       %{} = here ->
-        if here[link["account"]],
-          do: %{connected: true, why: nil},
-          else: %{connected: false, why: "Not connected on #{device} right now: it reconnects by itself"}
+        case here[link["account"]] do
+          "connected" -> %{connected: true, state: "connected", why: nil}
+          "connecting" -> %{connected: false, state: "connecting", why: "Connecting on #{device}"}
+          "restarting" -> %{connected: false, state: "restarting", why: "Its link on #{device} stopped, and starts again in a moment"}
+          _ -> %{connected: false, state: "disconnected", why: "Not connected on #{device} right now: it reconnects by itself"}
+        end
     end
   end
 

@@ -1,9 +1,9 @@
 // WhatsApp: each account is a phone linked to one of your devices, as WhatsApp Desktop is linked. Opened from
 // Accounts, as sign_in's page, with its number after a `#`, it's that account; with none, it links one: it shows the QR code to
 // scan on the phone, and the code to type there for a number.
-import { createMemo, createSignal, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
+import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
 import { render } from "@solidjs/web"
-import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, List, Problem, Row, Screen, Section, Select, Skeleton, toast } from "ui"
+import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, List, Problem, Row, Screen, Section, Select, Skeleton, Status, Steps, toast } from "ui"
 import "./sign-in.css"
 
 /** A linked account, as `whatsapp_accounts` answers it. */
@@ -11,77 +11,89 @@ interface Account {
   account: string
   device: string
   ok: boolean
+  state: "connecting" | "connected" | "disconnected" | "restarting" | "unreachable" | "unlinked" | "replaced"
   why: string
 }
 
-/** The codes a phone links by, while it links: the QR code to scan, and one to type for a number. */
-interface Codes {
+/** Where linking a phone is, as `whatsapp_pairing` answers it (link.ex's `@pairing`): the QR code to scan and one to
+ *  type for a number while it's pairing. */
+interface Pairing {
+  state: "none" | "starting" | "pairing" | "linked" | "ran_out" | "failed"
   qr?: string
   code?: string
-  error?: string
+  account?: string
+  why?: string
 }
 
 const ask = <T,>(tool: string, inputs = {}): Promise<T> => call(`whatsapp_${tool}`, inputs).then(JSON.parse)
 const plain = (error: unknown) => (error as Error).message.replace(/^./, (c) => c.toUpperCase())
 
-/// While a phone links: the QR code to scan, which WhatsApp renews every 20 seconds, asked again every 2. It's done
-/// once there's no code any more: linked, or run out.
-function Pairing(props: { device?: string; first: Codes; done: (linked: boolean) => void }) {
-  const [codes, setCodes] = createSignal(props.first)
-  const [why, setWhy] = createSignal<string>()
-  const timer = setInterval(async () => {
-    const now = await ask<Codes>("pairing", props.device ? { device: props.device } : {}).catch((error): Codes => ({ error: plain(error) }))
-    if (now.error) setWhy(now.error)
-    if (!now.qr) {
-      clearInterval(timer)
-      return props.done(!now.error)
-    }
-    setCodes(now)
-  }, 2000)
-  onCleanup(() => clearInterval(timer))
+/// Linking a phone, in the state it's in: its steps while it starts, the QR code to scan while it's pairing (which
+/// WhatsApp renews every 20 seconds), asked again whenever the server says it changed, and Try Again once the codes
+/// ran out or it failed, and Done once it's linked.
+function Linking(props: { device: string; phone: string; again: () => void }) {
+  const [pairing, setPairing] = createSignal<Pairing>({ state: "starting" })
+  const device = { device: props.device }
+  const start = () => {
+    setPairing({ state: "starting" })
+    call("whatsapp_sign_in", { ...device, ...(props.phone ? { phone: props.phone } : {}) }).then(
+      () => ask<Pairing>("pairing", device).then(setPairing),
+      (error) => setPairing({ state: "failed", why: (error as Error).message }),
+    )
+  }
+  start()
+  onCleanup(
+    changed(async () => {
+      if (!["starting", "pairing"].includes(pairing().state)) return
+      const now = await ask<Pairing>("pairing", device).catch((): undefined => undefined)
+      // While sign_in is still starting it, the last link's outcome, or none, is still what's there.
+      if (!now || (pairing().state === "starting" && now.state !== "pairing" && now.state !== "linked")) return
+      setPairing(now)
+    }),
+  )
+  const tryAgain = <Button variant="outline" onClick={start}>Try Again</Button>
   return (
     <Section heading="Link a Phone">
-      <p class="how">On the phone, open WhatsApp › Settings › Linked devices › Link a device, and scan this code.</p>
-      <Show when={codes().qr}>
-        <img class="qr" src={codes().qr} alt="The QR code to scan" />
-      </Show>
-      <Show when={codes().code}>
-        <p class="how">Or tap Link with phone number instead, and type this code:</p>
-        <p class="code">{codes().code}</p>
-      </Show>
-      <Show when={why()} fallback={<p class="how">Recent chats take a few minutes to arrive.</p>}>
-        <Problem warn heading={why()} />
-      </Show>
+      <Switch>
+        <Match when={pairing().state === "starting"}>
+          <Steps steps={["Asking WhatsApp for a code", "Scanning it on the phone"]} at={0} />
+        </Match>
+        <Match when={pairing().state === "pairing"}>
+          <p class="how">On the phone, open WhatsApp › Settings › Linked devices › Link a device, and scan this code.</p>
+          <img class="qr" src={pairing().qr} alt="The QR code to scan" />
+          <Show when={pairing().code}>
+            <p class="how">Or tap Link with phone number instead, and type this code:</p>
+            <p class="code">{pairing().code}</p>
+          </Show>
+          <p class="how">Recent chats take a few minutes to arrive.</p>
+        </Match>
+        <Match when={pairing().state === "linked"}>
+          <Empty action={<Button onClick={leave}>Done</Button>}>{pairing().account} is linked. Recent chats take a few minutes to arrive.</Empty>
+        </Match>
+        <Match when={pairing().state === "ran_out"}>
+          <Problem warn heading="The code ran out" text="The phone didn't scan it in time." action={tryAgain} />
+        </Match>
+        <Match when={pairing().state === "failed"}>
+          <Problem heading="Couldn't link the phone" text={pairing().why} action={tryAgain} />
+        </Match>
+        <Match when={pairing().state === "none"}>
+          <Problem warn heading="Linking stopped" text={`WhatsApp's link on ${props.device} started again.`} action={tryAgain} />
+        </Match>
+      </Switch>
     </Section>
   )
 }
 
 function Link(props: { devices: string[]; again: () => void }) {
   const devices = createListCollection({ items: props.devices.map((d) => ({ value: d, label: d })) })
-  const [linking, setLinking] = createSignal<{ device: string; first: Codes }>()
-  const [busy, setBusy] = createSignal(false)
-  const start = async (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
+  const [linking, setLinking] = createSignal<{ device: string; phone: string }>()
+  const start = (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const device = (form.get("device") as string | null) || props.devices[0]
-    const phone = String(form.get("phone") || "").trim()
-    setBusy(true)
-    try {
-      await call("whatsapp_sign_in", { device, ...(phone ? { phone } : {}) })
-      setLinking({ device, first: await ask<Codes>("pairing", { device }) })
-    } catch (error) {
-      toast(plain(error))
-    } finally {
-      setBusy(false)
-    }
-  }
-  const done = (linked: boolean) => {
-    setLinking()
-    if (!linked) toast("The codes ran out before the phone linked.")
-    props.again()
+    setLinking({ device: (form.get("device") as string | null) || props.devices[0], phone: String(form.get("phone") || "").trim() })
   }
   return (
-    <Show when={!linking()} fallback={<Pairing {...linking()!} done={done} />}>
+    <Show when={!linking()} fallback={<Linking {...linking()!} again={props.again} />}>
       <Section heading="Add Account">
         <form class="form" onSubmit={start}>
           <Show when={props.devices.length > 1}>
@@ -92,7 +104,7 @@ function Link(props: { devices: string[]; again: () => void }) {
           <Field label="Phone number" hint="Optional: for a code to type on the phone, when this shows on the phone itself.">
             <Input name="phone" type="tel" autocomplete="tel" placeholder="+61 400 000 000" />
           </Field>
-          <Button type="submit" loading={busy()}>Link Account</Button>
+          <Button type="submit">Link Account</Button>
         </form>
       </Section>
     </Show>
@@ -118,9 +130,20 @@ function AccountView(props: { account: Account }) {
   }
   return (
     <>
-      <Show when={!props.account.ok}>
-        <Problem warn heading="Not connected" text={`${props.account.why.replace(/^./, (c) => c.toUpperCase())}.`} />
-      </Show>
+      <Switch>
+        <Match when={props.account.state === "connecting"}>
+          <Status heading="Connecting…" />
+        </Match>
+        <Match when={props.account.state === "restarting"}>
+          <Status heading="Starting again…" text={`Its link on ${props.account.device} stopped.`} />
+        </Match>
+        <Match when={props.account.state === "disconnected"}>
+          <Status heading="Reconnecting…" />
+        </Match>
+        <Match when={props.account.state !== "connected"}>
+          <Problem warn heading="Not connected" text={`${props.account.why.replace(/^./, (c) => c.toUpperCase())}.`} />
+        </Match>
+      </Switch>
       <Section heading="Linked On">
         <List>
           <Row heading={props.account.device} />
