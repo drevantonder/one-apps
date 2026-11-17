@@ -90,7 +90,7 @@ defmodule ServerLoad.Widget do
   # A device's containers, each with its memory's ring, out of its own limit or its host's memory.
   defp containers(%{"containers" => [_ | _] = containers} = device) do
     for container <- containers do
-      memory = container["memory"] && Map.put_new(container["memory"], "total", device["memory"]["total"])
+      memory = container["memory"] && with_limit(container["memory"], device["memory"]["total"])
       about = %{part: "text", text: "On #{device["name"]}", size: "xs", tone: "muted", lines: 1}
       icon = %{part: "icon", path: @icons["container"], badge: @logos["linux"], width: @columns.icon}
       width = @columns.ram + @columns.cpu + @columns.gpu + @columns.disk + 3 * @columns.gap
@@ -100,6 +100,10 @@ defmodule ServerLoad.Widget do
   end
 
   defp containers(_device), do: []
+
+  # A container with no limit of its own, a total of 0, can use all of its host's memory.
+  defp with_limit(%{"total" => 0} = memory, host), do: %{memory | "total" => host}
+  defp with_limit(memory, _host), do: memory
 
   defp compact_header do
     %{part: "row", gap: 6, parts: [name([label("Devices")]), cell(24, label("RAM")), cell(34, label("DISK"))]}

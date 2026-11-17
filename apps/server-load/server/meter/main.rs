@@ -1,6 +1,7 @@
 //! Measures the machine it runs on: for each line it reads, it writes one line of JSON with the machine's
 //! processors, its load over the last 1, 5 and 15 minutes, its memory and disk in use, how busy its CPU and GPU
-//! were every 5 seconds over the last two minutes, the containers it hosts, and when this program started. It
+//! were every 5 seconds over the last two minutes, the containers it hosts, its own name if it is one, and when this
+//! program started. It
 //! stops when its input closes, which is how it's told that the service that started it has gone.
 //!
 //! A thread measures in the background, so a line is answered at once: CPU and GPU every 5 seconds, the rest every
@@ -71,8 +72,9 @@ fn main() {
             .map(|c| format!("{{\"name\":{},\"kind\":\"{}\",\"memory\":{}}}", text(&c.name), c.kind, space(c.memory)))
             .collect();
         let containers = containers.join(",");
+        let container = if in_container() { format!("\"container\":{},", text(&hostname())) } else { String::new() };
         let measured = format!(
-            "{{\"processors\":{processors},\"load\":[{one:.2},{five:.2},{fifteen:.2}],\"since\":{since},\"os\":\"{os}\",\"memory\":{memory},\"disk\":{disk},\"cpu\":{cpu},\"gpu\":{gpu},\"containers\":[{containers}]}}\n"
+            "{{\"processors\":{processors},\"load\":[{one:.2},{five:.2},{fifteen:.2}],\"since\":{since},\"os\":\"{os}\",{container}\"memory\":{memory},\"disk\":{disk},\"cpu\":{cpu},\"gpu\":{gpu},\"containers\":[{containers}]}}\n"
         );
         if out.write_all(measured.as_bytes()).and_then(|()| out.flush()).is_err() {
             break;
@@ -86,6 +88,11 @@ fn in_container() -> bool {
         && ["/run/systemd/container", "/run/.containerenv", "/.dockerenv"]
             .iter()
             .any(|p| std::path::Path::new(p).exists())
+}
+
+/// This machine's name, which an Incus container is given its own name as.
+fn hostname() -> String {
+    std::fs::read_to_string("/proc/sys/kernel/hostname").unwrap_or_default().trim().to_string()
 }
 
 fn measure(measured: &Mutex<Measured>) {

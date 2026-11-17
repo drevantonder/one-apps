@@ -51,6 +51,7 @@ defmodule ServerLoad do
                   os: %{type: "string", description: "linux or macos"},
                   processors: %{type: "integer"},
                   load: %{type: "array", items: %{type: "number"}, description: "Load average over 1, 5 and 15 minutes"},
+                  container: %{type: "string", description: "If it is a container, its name on its host, which doesn't list it again"},
                   since: %{type: "integer", description: "When it started, in seconds since 1970"},
                   memory: @space,
                   disk: @space,
@@ -110,7 +111,17 @@ defmodule ServerLoad do
         %{"server" => server, "name" => OneCore.Service.name(server), "problem" => "It's off.", "seen" => seen}
       end
 
-    Enum.sort_by(Enum.map(on, &measure(call, &1)) ++ off, &String.downcase(&1["name"] || ""))
+    devices = Enum.map(on, &measure(call, &1)) ++ off
+    Enum.sort_by(without_devices(devices), &String.downcase(&1["name"] || ""))
+  end
+
+  # A container that is a device itself is listed as that device, with its own readings, and not again under its host.
+  defp without_devices(devices) do
+    own = for %{"container" => name} <- devices, into: MapSet.new(), do: name
+
+    for device <- devices do
+      Map.update(device, "containers", [], fn containers -> Enum.reject(containers, &(&1["name"] in own)) end)
+    end
   end
 
   defp measure(call, server) do
