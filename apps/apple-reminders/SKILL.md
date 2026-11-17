@@ -4,7 +4,7 @@ description: Read when the user asks about their Apple Reminders, or to add, cha
 metadata:
   subtitle: "Your Mac's reminders"
   about: "Your AI adds, changes and ticks off your Apple Reminders, through your Mac, so they're on your iPhone too."
-  category: Productivity
+  category: Connectors
 ---
 
 Reminders are the user's Apple Reminders, through their Mac, and sync to their other Apple devices. `lists` lists
