@@ -12,5 +12,9 @@ their agents can reach it; on battery it sleeps as usual. `set` turns it on or o
 whether it's keeping that Mac awake now. `macs` lists every Mac that has it. Give `device`, a Mac's name, to
 choose one; without it, it's the first.
 
+What holds a Mac awake is a launchd agent of its own, `app.theone.stay-awake`, there for as long as Stay Awake is on:
+so the Mac stays awake, and reachable, while its server restarts, crashes or won't start. Turning it off, or
+uninstalling it, removes the agent.
+
 A Mac has Stay Awake once its service is installed there: `install_service --app stay-awake --service StayAwake.Mac
 --server <key>`. Then it's on unless turned off.
