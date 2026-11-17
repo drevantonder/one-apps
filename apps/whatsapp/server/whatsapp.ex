@@ -71,7 +71,7 @@ defmodule WhatsApp do
   @impl true
   def requires do
     %{
-      "core" => "~> 0.19.0",
+      "core" => "~> 0.20.0",
       "database" => "to keep your messages",
       "vault" => "to keep your WhatsApp sign-in"
     }
