@@ -204,6 +204,28 @@ defmodule Messenger do
         }
       },
       %{
+        name: "signing_in",
+        read_only: true,
+        description:
+          "Where signing an account in that sign_in started is, for the screen: opening (the window starting), waiting (for the user to sign in there), signed_in, closed (they closed the window first), timed_out (after 15 minutes), failed (with why), or none (not started on that device since its browser last started).",
+        inputs: %{
+          type: "object",
+          required: ["account"],
+          properties: %{
+            account: %{type: "string", description: "the account's name, as sign_in took it"},
+            device: %{type: "string", description: "the device sign_in opened the window on, by name; default the first"}
+          }
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            state: %{type: "string", enum: ~w(none opening waiting signed_in closed timed_out failed)},
+            why: %{type: ["string", "null"], description: "Why it failed"}
+          },
+          required: ["state"]
+        }
+      },
+      %{
         name: "sign_out",
         description:
           "Stop reading an account: its session is deleted here. Messenger itself isn't told, so the user signs that browser out in Facebook's settings if they want it gone there too.",
@@ -259,6 +281,10 @@ defmodule Messenger do
     %{account: account, device: OneCore.Service.name(server)}
   end
 
+  def call("signing_in", %{"account" => account} = inputs, call) do
+    OneCore.Service.call(call, Browser, :signing_in, [call.subject, account], device(call, inputs["device"]))
+  end
+
   def call("sign_out", %{"account" => want}, call) do
     account = transaction(call, &account!(&1, want))
 
@@ -300,6 +326,10 @@ defmodule Messenger do
         raise why
     end
   end
+
+  @doc false
+  # Something about signing in changed: every app watching is told. For `Messenger.Browser`.
+  def changed(call), do: OneCore.Call.changed(call)
 
   @doc false
   # An account's session, to open its browser from, or nil when there's none.

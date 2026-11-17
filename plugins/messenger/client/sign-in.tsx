@@ -1,9 +1,9 @@
 // Messenger: each account is a sign-in to messenger.com, held by a browser on one of your devices. Opened from
 // Accounts, as sign_in's page, with its name after a `#`, it's that account; with none, it signs one in, which opens a window on
 // that device's screen, where you sign in yourself.
-import { createMemo, createSignal, Errored, For, Loading, refresh, Show } from "solid-js"
+import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
 import { render } from "@solidjs/web"
-import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, Problem, Screen, Section, Select, Skeleton, toast } from "ui"
+import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, Problem, Screen, Section, Select, Skeleton, Steps, toast } from "ui"
 import "./sign-in.css"
 
 /** A signed-in account, as `messenger_accounts` answers it. */
@@ -15,31 +15,74 @@ interface Account {
 const ask = <T,>(tool: string, inputs = {}): Promise<T> => call(`messenger_${tool}`, inputs).then(JSON.parse)
 const plain = (error: unknown) => (error as Error).message.replace(/^./, (c) => c.toUpperCase())
 
+/** Where signing an account in is, as `messenger_signing_in` answers it (browser.ex's `@signing`). */
+interface Signing {
+  state: "none" | "opening" | "waiting" | "signed_in" | "closed" | "timed_out" | "failed"
+  why?: string
+}
+
+/// Signing `account` in on `device`, in the state it's in: its steps while the window opens and waits for its person,
+/// asked again whenever the server says it changed, and Try Again once the window was closed, the time ran out or it
+/// failed, and Done once it's signed in.
+function SigningIn(props: { account: string; device: string }) {
+  const [signing, setSigning] = createSignal<Signing>({ state: "opening" })
+  const which = { account: props.account, device: props.device }
+  const start = () => {
+    setSigning({ state: "opening" })
+    call("messenger_sign_in", which).then(
+      () => ask<Signing>("signing_in", which).then(setSigning),
+      (error) => setSigning({ state: "failed", why: (error as Error).message }),
+    )
+  }
+  start()
+  onCleanup(
+    changed(async () => {
+      if (!["opening", "waiting"].includes(signing().state)) return
+      const now = await ask<Signing>("signing_in", which).catch((): undefined => undefined)
+      if (!now || (signing().state === "opening" && now.state !== "waiting" && now.state !== "signed_in")) return
+      setSigning(now)
+    }),
+  )
+  const tryAgain = <Button variant="outline" onClick={start}>Try Again</Button>
+  return (
+    <Switch>
+      <Match when={signing().state === "opening" || signing().state === "waiting"}>
+        <Steps
+          steps={[`Opening a window on ${props.device}`, `Signing in as ${props.account}`]}
+          at={signing().state === "opening" ? 0 : 1}
+          text={signing().state === "waiting" ? "Sign in to Messenger in that window, and tick Keep me signed in." : undefined}
+        />
+      </Match>
+      <Match when={signing().state === "signed_in"}>
+        <Empty action={<Button onClick={leave}>Done</Button>}>{props.account} is signed in.</Empty>
+      </Match>
+      <Match when={signing().state === "closed"}>
+        <Problem warn heading="The window was closed" text="It closed before Messenger was signed in." action={tryAgain} />
+      </Match>
+      <Match when={signing().state === "timed_out"}>
+        <Problem warn heading="Signing in took too long" text="The window closed after 15 minutes." action={tryAgain} />
+      </Match>
+      <Match when={signing().state === "failed"}>
+        <Problem heading="Couldn't open the window" text={signing().why} action={tryAgain} />
+      </Match>
+      <Match when={signing().state === "none"}>
+        <Problem warn heading="Signing in stopped" text={`Messenger's browser on ${props.device} started again.`} action={tryAgain} />
+      </Match>
+    </Switch>
+  )
+}
+
 function SignIn(props: { devices: string[] }) {
   const devices = createListCollection({ items: props.devices.map((d) => ({ value: d, label: d })) })
-  const [busy, setBusy] = createSignal(false)
-  const [opened, setOpened] = createSignal<{ account: string; device: string }>()
-  const start = async (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
+  const [signing, setSigning] = createSignal<{ account: string; device: string }>()
+  const start = (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const device = (form.get("device") as string | null) || props.devices[0]
-    const account = String(form.get("account") || "").trim() || "Personal"
-    setBusy(true)
-    try {
-      await call("messenger_sign_in", { account, device })
-      setOpened({ account, device })
-    } catch (error) {
-      toast(plain(error))
-    } finally {
-      setBusy(false)
-    }
+    setSigning({ account: String(form.get("account") || "").trim() || "Personal", device: (form.get("device") as string | null) || props.devices[0] })
   }
   return (
     <Section heading="Add Account">
-      <Show
-        when={!opened()}
-        fallback={<p class="how">{`A window opened on ${opened()!.device}. Sign in to Messenger there as ${opened()!.account}, and tick Keep me signed in. It's added here once your chats show.`}</p>}
-      >
+      <Show when={!signing()} fallback={<SigningIn {...signing()!} />}>
         <form class="form" onSubmit={start}>
           <Field label="Name" hint="To tell your accounts apart, like Personal or Work.">
             <Input name="account" placeholder="Personal" autocapitalize="words" autocorrect="off" />
@@ -49,7 +92,7 @@ function SignIn(props: { devices: string[] }) {
               <Select.Root name="device" collection={devices} />
             </Field>
           </Show>
-          <Button type="submit" loading={busy()}>Sign In to Messenger</Button>
+          <Button type="submit">Sign In to Messenger</Button>
         </form>
       </Show>
     </Section>
@@ -73,23 +116,23 @@ function AccountView(props: { account: Account; devices: string[] }) {
       toast(plain(error))
     }
   }
-  const signIn = async () => {
-    try {
-      await call("messenger_sign_in", { account: props.account.account, device: props.devices[0] })
-      toast(`A window opened on ${props.devices[0]}. Sign in to Messenger there.`)
-    } catch (error) {
-      toast(plain(error))
-    }
-  }
+  const [signing, setSigning] = createSignal(false)
   return (
     <>
       <Show when={!props.account.ok}>
-        <Problem
-          warn
-          heading="Needs signing in again"
-          text="Messenger signed it out."
-          action={<Show when={props.devices.length}><Button variant="outline" onClick={signIn}>Sign In</Button></Show>}
-        />
+        <Show
+          when={signing()}
+          fallback={
+            <Problem
+              warn
+              heading="Needs signing in again"
+              text="Messenger signed it out."
+              action={<Show when={props.devices.length}><Button variant="outline" onClick={() => setSigning(true)}>Sign In</Button></Show>}
+            />
+          }
+        >
+          <SigningIn account={props.account.account} device={props.devices[0]} />
+        </Show>
       </Show>
       <div class="out">
         <Button variant="ghost" class="sign-out" onClick={signOut}>Sign Out</Button>

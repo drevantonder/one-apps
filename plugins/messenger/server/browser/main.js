@@ -248,10 +248,16 @@ const commands = {
     const context = await headed.newContext()
     const signing = await context.newPage()
     await signing.goto(HOME)
+    // Until the chat list shows, the person closes the window, or 15 minutes pass: `not_signed_in` says which.
     ;(async () => {
       const end = Date.now() + 15 * 60_000
       while (Date.now() < end) {
         await sleep(1000)
+        if (signing.isClosed()) {
+          await headed.close()
+          emit({ event: "not_signed_in", account, reason: "closed" })
+          return
+        }
         const chats = await signing.evaluate(reads.chats, MENU).catch(() => [])
         if (chats.length) {
           const state = await context.storageState({ indexedDB: true })
@@ -262,8 +268,8 @@ const commands = {
         }
       }
       await headed.close()
-      emit({ event: "not_signed_in", account })
-    })().catch((error) => emit({ event: "not_signed_in", account, why: error.message }))
+      emit({ event: "not_signed_in", account, reason: "timed_out" })
+    })().catch((error) => emit({ event: "not_signed_in", account, reason: "failed", why: error.message }))
     return "The window is open."
   },
 

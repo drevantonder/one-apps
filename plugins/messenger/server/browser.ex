@@ -5,10 +5,29 @@ defmodule Messenger.Browser do
   (`Messenger.session/2`) and hands over the first time an account is asked for; what the program sends back as
   that session changes, and once someone signs in, goes back to the plugin (`Messenger.store_session/4`). Any machine
   that runs this can read any of its person's accounts.
+
+  Signing an account in is in one state at a time, which changes only as `@signing` says: `opening` (the window
+  starting), `waiting` (the window open, for its person to sign in), then `signed_in`, `closed` (they closed the
+  window first), `timed_out` (15 minutes passed) or `failed`, with why. It's kept once it's over, for the screen to
+  say so, until the account is signed in again.
   """
   use GenServer
   @behaviour OneCore.Service
   require Logger
+
+  # Signing an account in, by the state it's in and what happens, as the moduledoc says. What isn't here leaves it as
+  # it is.
+  @signing %{
+    {"opening", "opened"} => "waiting",
+    {"opening", "failed"} => "failed",
+    {"opening", "signed_in"} => "signed_in",
+    {"waiting", "signed_in"} => "signed_in",
+    {"waiting", "closed"} => "closed",
+    {"waiting", "timed_out"} => "timed_out",
+    {"waiting", "failed"} => "failed",
+    {"opening", "closed"} => "closed",
+    {"opening", "timed_out"} => "timed_out"
+  }
 
   @impl OneCore.Service
   def called, do: "Messenger's browser"
@@ -28,6 +47,9 @@ defmodule Messenger.Browser do
   @doc "Opens a window on this machine for `who` to sign in to Messenger as `account`."
   def sign_in(service, who, account), do: GenServer.call(service, {:sign_in, who, account}, 60_000)
 
+  @doc "Where signing `account` in here for `who` is: its `state`, and `why` it failed. `none` when it wasn't started here since this service started."
+  def signing_in(service, who, account), do: GenServer.call(service, {:signing_in, who, account})
+
   @doc "Closes `account`'s browser here, if it's open, its session kept first."
   def close(service, account), do: GenServer.call(service, {:close, account}, 60_000)
 
@@ -35,7 +57,7 @@ defmodule Messenger.Browser do
   def init(_) do
     bun = System.find_executable("bun") || raise "This machine has no Bun to run Messenger's browser with"
 
-    {:ok, %{bun: bun, port: nil, buffer: "", waiting: %{}, request_id: 0, open: MapSet.new(), whos: %{}},
+    {:ok, %{bun: bun, port: nil, buffer: "", waiting: %{}, request_id: 0, open: MapSet.new(), whos: %{}, signing: %{}},
      {:continue, :start}}
   end
 
@@ -51,6 +73,8 @@ defmodule Messenger.Browser do
     port =
       Port.open({:spawn_executable, state.bun}, [:binary, :exit_status, line: 1_048_576, args: ["main.js"], cd: folder])
 
+    # A sign-in under way in the browser this one replaces is over: a screen showing it asks again.
+    for who <- OneCore.Service.acts_for(), do: tell(who)
     {:noreply, %{state | port: port}}
   end
 
@@ -69,7 +93,16 @@ defmodule Messenger.Browser do
 
   def handle_call({:sign_in, who, account}, from, state) do
     state = put_in(state.whos[account], who)
-    {:noreply, ask(state, %{"do" => "sign_in", "account" => account}, {from, account, nil})}
+    state = put_in(state.signing[account], %{who: who, state: "opening", why: nil})
+    tell(who)
+    {:noreply, ask(state, %{"do" => "sign_in", "account" => account}, {from, account, :signs_in})}
+  end
+
+  def handle_call({:signing_in, who, account}, _from, state) do
+    case state.signing[account] do
+      %{who: ^who} = signing -> {:reply, Map.take(signing, [:state, :why]), state}
+      _ -> {:reply, %{state: "none"}, state}
+    end
   end
 
   def handle_call({:close, account}, from, state) do
@@ -107,7 +140,13 @@ defmodule Messenger.Browser do
         true -> state.open
       end
 
-    %{state | waiting: waiting, open: open}
+    state = %{state | waiting: waiting, open: open}
+
+    cond do
+      effect != :signs_in -> state
+      response["error"] -> step(state, account, "failed", response["error"])
+      true -> step(state, account, "opened")
+    end
   end
 
   defp handle_event(state, %{"event" => "session", "account" => account, "data" => data}) do
@@ -118,10 +157,28 @@ defmodule Messenger.Browser do
   defp handle_event(state, %{"event" => "signed_in", "account" => account, "data" => data}) do
     keep(state, account, data, true)
     Logger.info("Messenger: #{account} is signed in")
-    %{state | open: MapSet.delete(state.open, account)}
+    step(%{state | open: MapSet.delete(state.open, account)}, account, "signed_in")
   end
 
-  defp handle_event(state, %{"event" => "not_signed_in"}), do: state
+  defp handle_event(state, %{"event" => "not_signed_in", "account" => account} = event),
+    do: step(state, account, event["reason"], event["why"])
+
+  # Takes signing `account` in one step (`event`, by `@signing`), and tells its person's apps.
+  defp step(state, account, event, why \\ nil) do
+    with %{state: was} = signing <- state.signing[account],
+         to when to != nil <- @signing[{was, event}] do
+      tell(signing.who)
+      put_in(state.signing[account], %{signing | state: to, why: why})
+    else
+      _ -> state
+    end
+  end
+
+  # Tells `who`'s apps that something changed here, as a call to the plugin does once it's done.
+  defp tell(who) do
+    service = self()
+    Task.start(fn -> OneCore.Service.plugin(service, who, :changed) end)
+  end
 
   defp keep(state, account, data, signed_in) do
     OneCore.Service.plugin(self(), state.whos[account], :store_session, [account, data, signed_in])

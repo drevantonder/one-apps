@@ -16,7 +16,7 @@ account is a sign-in there, named by the user (Personal, Work), as `accounts` li
   text they approved.
 - If Messenger signed an account out, the tools say so. `sign_in` opens a browser window at messenger.com on one
   of their devices (`device`, from `devices`), where they sign in themselves, at that device's screen; never sign
-  in for them. It's kept once their chats show.
+  in for them. It's kept once their chats show, and `signing_in` says whether it has, or the window was closed first.
 - `sign_out` stops reading an account and deletes its session here, only when the user asks.
 
 A device runs Messenger's browser once its service is installed there: `install_service --plugin messenger
