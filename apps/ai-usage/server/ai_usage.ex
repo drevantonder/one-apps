@@ -39,7 +39,7 @@ defmodule AIUsage do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def requires, do: %{"core" => "~> 0.20.0", "database" => "to keep your usage readings"}
+  def requires, do: %{"core" => ">= 0.20.0", "database" => "to keep your usage readings"}
 
   # Fresh readings every five minutes, so the pace has readings far enough apart to say when a window runs out.
   @impl true

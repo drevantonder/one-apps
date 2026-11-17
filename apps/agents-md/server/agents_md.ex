@@ -27,7 +27,7 @@ defmodule AgentsMd do
   def icon, do: "icon.svg"
 
   @impl true
-  def requires, do: %{"core" => "~> 0.20.0", "database" => "to keep your instructions and skills"}
+  def requires, do: %{"core" => ">= 0.20.0", "database" => "to keep your instructions and skills"}
 
   @impl true
   def tools do

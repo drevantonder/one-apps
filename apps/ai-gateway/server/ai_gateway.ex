@@ -25,7 +25,7 @@ defmodule AiGateway do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def requires, do: %{"core" => "~> 0.20.0", "vault" => "to keep your AI keys"}
+  def requires, do: %{"core" => ">= 0.20.0", "vault" => "to keep your AI keys"}
 
   @impl true
   def entrypoints, do: [%{name: "AI Gateway", page: "client/index.html"}]
