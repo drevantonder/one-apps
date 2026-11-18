@@ -7,6 +7,10 @@ defmodule StayAwake do
   @behaviour OneCore.App
   alias StayAwake.Mac
 
+  # A Mac that goes off or comes back says nothing, and "Seen 2 minutes ago" ages, so the Home Screen asks again this
+  # often (seconds) while the widget shows.
+  @refresh 60
+
   @device %{type: "string", description: "the Mac, by name, as `services` names it; else the first that has Stay Awake"}
 
   # How Stay Awake stands on a Mac.
@@ -121,8 +125,8 @@ defmodule StayAwake do
       end
 
     if rows == [],
-      do: %{part: "text", text: "No Mac has Stay Awake yet.", size: "sm", tone: "muted"},
-      else: %{part: "column", gap: 8, parts: rows}
+      do: %{part: "text", text: "No Mac has Stay Awake yet.", size: "sm", tone: "muted", refresh: @refresh},
+      else: %{part: "column", gap: 8, refresh: @refresh, parts: rows}
   end
 
   # A Mac that's off isn't asked: it says when it was last seen instead.

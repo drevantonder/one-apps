@@ -26,8 +26,12 @@ defmodule ServerLoad.Widget do
   # The widths of the columns, shared by the header and every row so they line up.
   @columns %{ram: 30, cpu: 32, gpu: 32, disk: 30, gap: 6, icon: 22, ring: 18, spark: 16}
 
+  # Load changes without anything announcing it, so the Home Screen asks again this often (seconds) while it shows.
+  @refresh 60
+
   @doc "The layout for `devices`, as `now` gives them, at `size`."
-  def layout([], _size), do: %{part: "text", text: "No device is measured yet.", size: "sm", tone: "muted"}
+  def layout([], _size),
+    do: %{part: "text", text: "No device is measured yet.", size: "sm", tone: "muted", refresh: @refresh}
   def layout(devices, "2x2"), do: column(spread([compact_header() | Enum.map(Enum.take(devices, 5), &compact/1)]))
 
   def layout(devices, size) do
@@ -36,7 +40,7 @@ defmodule ServerLoad.Widget do
     column(spread([header() | rows] ++ if(details, do: List.wrap(warning(devices)), else: [])))
   end
 
-  defp column(parts), do: %{part: "column", title: false, parts: parts}
+  defp column(parts), do: %{part: "column", title: false, refresh: @refresh, parts: parts}
 
   # Rows spread over the widget's height once there are enough of them, and a few stay together at its top.
   defp spread(parts) when length(parts) < 4,
