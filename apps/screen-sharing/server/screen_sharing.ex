@@ -4,7 +4,7 @@ defmodule ScreenSharing do
   `ScreenSharing.Helper`, is a screen (the hook `computer-use.screens`), which an agent sees and uses as its person
   would, while they watch.
 
-  A Mac's screen is its person's: only they, the first its server acts for, or the network's owner use it.
+  A Mac's screen is its person's: only they, the user its server is for, or the network's owner use it.
   """
   @behaviour OneCore.App
   alias OneCore.{Call, Service}
@@ -72,7 +72,7 @@ defmodule ScreenSharing do
                 properties: %{
                   name: %{type: ["string", "null"]},
                   mac: %{type: "string", description: "Its server's key"},
-                  person: %{type: ["string", "null"], description: "Whose Mac it is: the first its server acts for"},
+                  person: %{type: ["string", "null"], description: "Whose Mac it is: who its server is for, a user, or the network"},
                   width: %{type: "integer"},
                   height: %{type: "integer"},
                   screen_recording: %{type: "boolean", description: "Whether macOS lets Screen Sharing for The One App see the screen"},
@@ -162,8 +162,12 @@ defmodule ScreenSharing do
   # Whose Mac it is: the first its server acts for, its owner, whom it was started for.
   defp person(server), do: List.first(OneCore.Servers.members(server))
 
-  # Only the Mac's person, or the network's owner, uses its screen.
-  defp may?(call, server), do: call.subject == person(server) or Call.owns?(%{call | subject: "network"})
+  # Only the Mac's person, or the network's owner, uses its screen. A Mac whose server is a group's or the
+  # network's has no person of its own: any member may ask for those, so only the network's owner uses it.
+  defp may?(call, server) do
+    person = person(server)
+    (String.starts_with?(person || "", "users/") and call.subject == person) or Call.owns?(%{call | subject: "network"})
+  end
 
   defp did("click", %{"x" => x, "y" => y} = inputs), do: "Clicked #{inputs["button"] || "left"} at #{x}, #{y}"
   defp did("double_click", %{"x" => x, "y" => y}), do: "Double-clicked at #{x}, #{y}"

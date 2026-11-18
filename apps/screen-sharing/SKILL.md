@@ -17,14 +17,14 @@ you may use and whether macOS allows it yet, and asks macOS nothing.
   them, so do only what they asked, and never sign in, buy, send or delete without them asking for that.
 - Never type a password or a code (a one-time code, a passkey's PIN). Ask the person to type it on the Mac. `type`
   refuses while a password field has the focus.
-- A screenshot is the display scaled down to what a model sees unshrunk (at most 1568 pixels wide and about 1.15
+- A screenshot is the display scaled down to what a model sees unshrunk (at most 1568 pixels on its long side and about 1.15
   megapixels), and x and y are its pixels. On a large display text is small: zoom in the app you're using (⌘+ in a
   browser) rather than guessing.
 - Keys are named as xdotool names them. `ctrl` with a letter, digit or punctuation is ⌘, as a shortcut means on a Mac
   (`ctrl+l`, `ctrl+c`, `ctrl+t`), and with anything else ⌃ (`ctrl+Tab`). `super`, `cmd` and `meta` are ⌘, `alt` is
   ⌥, and `control` is always ⌃ (`control+c` in Terminal).
 
-Only the Mac's person, the first its server acts for, and the network's owner may use its screen; it's no one else's
+Only the Mac's person, the user its server is for, and the network's owner may use its screen; it's no one else's
 screen. A Mac has Screen Sharing once its service is installed there: `install_service --app screen-sharing --service
 ScreenSharing.Helper --server <key>`. The Mac needs Xcode or its Command Line Tools, to build the small app the
 service runs there, Screen Sharing for The One App.
