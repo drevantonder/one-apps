@@ -1,6 +1,6 @@
 {
   "server/bin/helper/macos-aarch64": {
-    "sha256": "9b29828a72e873f89009f8d88efcc53e2961bbcef83823989982e0ec11f7a795",
-    "url": "https://github.com/drevantonder/one-apps/releases/download/nifs-ed851abf28ec/helper-c59e5dba5d069b27ef742ce8c72ec778c443a889089b76dd85920ef525773134-macos-aarch64"
+    "sha256": "b8baa9115b7b9ed79defed48d94a14f4b7330c954d96851874a214f6a7a465d0",
+    "url": "https://github.com/drevantonder/one-apps/releases/download/nifs-7a7774ead194/helper-e2f75768a5b15e4188e3490c01dfeab7ddd052ab52e631dd41e5b4a344d5112c-macos-aarch64"
   }
 }
