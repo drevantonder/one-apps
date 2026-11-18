@@ -14,8 +14,9 @@ writable ones take new events. Times are ISO 8601; without an offset they're in 
 event's id names one occurrence: `update` and `delete` change just it, or with `future` it and every later one.
 `delete` can't be undone: the calendar's account deletes it everywhere, so delete only what the user asked to.
 
-It reaches the Mac through its service `AppleCalendar.Helper`, which builds and runs a small app there, Apple
+It reaches the Mac through its service `AppleCalendar.Helper`, which runs a small app there, Apple
 Calendar for The One App: `install_service --app apple-calendar --service AppleCalendar.Helper --server <key>`
-(`services` gives the key); the Mac needs Xcode or its Command Line Tools. The first time a tool runs, macOS asks on
-the Mac's screen whether that app may have full access to the calendars, and the tool says it's waiting for permission
-on the Mac. Only the Mac's person can answer it: tell them to click Allow, then ask again.
+(`services` gives the key). The first time a tool runs, macOS asks on the Mac's screen whether that app may have
+full access to the calendars, and the tool waits up to 30 seconds for their answer. If no one answers by then, it says macOS is still asking there:
+only the Mac's person can answer, so tell them to click Allow, then ask again. If it's turned off, the tool says
+so, with the link that opens System Settings where they turn it on.
