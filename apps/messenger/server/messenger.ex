@@ -336,7 +336,7 @@ defmodule Messenger do
           )
 
         if newly != [] do
-          OneCore.Call.app(call, "vault").state(call, item(account), :action_required, "Messenger signed it out", %{
+          OneCore.Call.app(call, "vault").state(call, item(account), :needs_action, "Messenger signed it out", %{
             label: "Sign In",
             page: "client/sign-in.html##{account}"
           })

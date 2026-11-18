@@ -634,7 +634,7 @@ defmodule WhatsApp do
   def ended(call, account, how) do
     if how == "unlinked" do
       OneCore.Artifact.remove(call.own, "sessions/#{account}")
-      vault(call).state(call, item(account), :action_required, "Unlinked on your phone", %{label: "Sign In", page: "client/sign-in.html#+#{account}"})
+      vault(call).state(call, item(account), :needs_action, "Unlinked on your phone", %{label: "Sign In", page: "client/sign-in.html#+#{account}"})
 
       OneCore.Call.tool(call, "notifications", "send", %{
         "title" => "WhatsApp +#{account} was unlinked",
