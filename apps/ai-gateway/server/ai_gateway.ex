@@ -22,7 +22,7 @@ defmodule AiGateway do
   @timeout 300
 
   @impl true
-  def icon, do: "client/icon.svg"
+  def icon, do: "icon.svg"
 
   # Its data is everyone's together: the network's models and jobs, and each person's own beside them (`jobs/<who>`).
   @impl true
@@ -32,8 +32,6 @@ defmodule AiGateway do
   def requires, do: %{"core" => ">= 0.20.0", "vault" => "to keep your AI keys"}
 
   @impl true
-  def entrypoints, do: [%{name: "AI Gateway", page: "client/index.html"}]
-
   @impl true
   def tools do
     model = %{
