@@ -1,4 +1,5 @@
 import Contacts
+import CoreServices
 import Foundation
 import SQLite3
 
@@ -95,14 +96,27 @@ enum MessagesPart {
         while p.isRunning, Date.now < deadline { Thread.sleep(forTimeInterval: 0.1) }
         if p.isRunning {
             p.terminate()
-            throw Refusal("Messages didn't answer. macOS may be asking on the Mac's screen whether \(thisApp) may control Messages: click Allow there, then ask again.")
+            throw Refusal(automation() == OSStatus(errAEEventWouldRequireUserConsent)
+                ? "macOS is asking on the Mac's screen whether \(thisApp) may control Messages, to send. Click Allow there, then ask again."
+                : "Messages didn't answer within 30 seconds.")
         }
         guard p.terminationStatus != 0 else { return }
         let error = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         if error.contains("-1743") {
-            throw Refusal("macOS doesn't let \(thisApp) control Messages. Allow it on the Mac in System Settings → Privacy & Security → Automation: under \(thisApp), turn on Messages.")
+            throw Refusal("macOS doesn't let \(thisApp) control Messages, to send: it's turned off on the Mac. To allow it, open System Settings → " +
+                          "Privacy & Security → Automation on the Mac (\(settings("Privacy_Automation"))) and, under \(thisApp), turn on Messages.")
         }
         throw Refusal("Messages couldn't send it: \(error)")
+    }
+
+    /// Whether macOS lets this helper control Messages, asking no one: noErr, errAEEventNotPermitted (it's turned
+    /// off), errAEEventWouldRequireUserConsent (no one's answered) or procNotFound (Messages isn't running).
+    static func automation() -> OSStatus {
+        var target = AEAddressDesc()
+        let messages = Array("com.apple.MobileSMS".utf8)
+        AECreateDesc(typeApplicationBundleID, messages, messages.count, &target)
+        defer { AEDisposeDesc(&target) }
+        return AEDeterminePermissionToAutomateTarget(&target, typeWildCard, typeWildCard, false)
     }
 }
 
@@ -145,8 +159,9 @@ final class ChatDB {
             sqlite3_close(db)
             db = nil
             let app = Bundle.main.bundlePath
-            throw Refusal("Waiting for permission on the Mac: reading iMessages needs Full Disk Access, which macOS never asks for. Allow it on the Mac in System Settings → Privacy & Security → Full Disk Access: " +
-                          "turn on \(thisApp), or if it isn't listed, click +, press Command-Shift-G and go to \(app).")
+            throw Refusal("Reading iMessages needs Full Disk Access for \(thisApp), which macOS never asks for: the Mac's person turns it on. " +
+                          "On the Mac, open System Settings → Privacy & Security → Full Disk Access (\(settings("Privacy_AllFiles"))) and turn on \(thisApp); " +
+                          "if it isn't listed, click +, press Command-Shift-G, go to \(app) and click Open.")
         }
         // body(text, attributedBody): a message's text, wherever this macOS keeps it.
         sqlite3_create_function_v2(db, "body", 2, SQLITE_UTF8 | SQLITE_DETERMINISTIC, nil, { ctx, _, args in
@@ -267,13 +282,19 @@ func archivedText(_ b: [UInt8]) -> String? {
 }
 
 /// Everyone's name by each of their phone numbers and email addresses (see `handle`), once Contacts is allowed. The
-/// first call asks for it, and goes on with numbers rather than waiting for the answer.
+/// first call asks for it, once a run, and goes on with numbers rather than waiting for the answer.
 enum Names {
+    nonisolated(unsafe) static var asked = false
+
     static func all() -> [String: String] {
         switch CNContactStore.authorizationStatus(for: .contacts) {
         case .authorized, .limited: break
         case .notDetermined:
-            if asked.insert("Contacts").inserted { CNContactStore().requestAccess(for: .contacts) { _, _ in } }
+            if !asked {
+                asked = true
+                let store = CNContactStore()
+                store.requestAccess(for: .contacts) { _, _ in withExtendedLifetime(store) {} }
+            }
             return [:]
         default: return [:]
         }

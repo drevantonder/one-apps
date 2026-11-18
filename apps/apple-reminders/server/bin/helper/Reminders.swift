@@ -4,15 +4,23 @@ import Foundation
 /// Reminders, through EventKit, which needs full access to the Mac's reminders. Each call opens its own store and is
 /// done with what it fetched before it answers.
 func run(_ function: String, _ input: Input) throws -> Any {
-    let access: Access = switch EKEventStore.authorizationStatus(for: .reminder) {
-    case .fullAccess: .granted
-    case .notDetermined: .unasked
-    default: .denied
-    }
-    try need(access, "use your reminders", pane: "Reminders",
-             allow: "turn on \(thisApp)") { EKEventStore().requestFullAccessToReminders { _, _ in } }
+    try reminders.need()
     return try RemindersPart.run(function, input)
 }
+
+let reminders = Permission(
+    "use your reminders", pane: "Reminders", anchor: "Privacy_Reminders", allow: "turn on \(thisApp)",
+    access: {
+        switch EKEventStore.authorizationStatus(for: .reminder) {
+        case .fullAccess: .allowed
+        case .notDetermined: .unknown
+        default: .denied
+        }
+    },
+    request: { answered in
+        let store = EKEventStore()
+        store.requestFullAccessToReminders { _, _ in withExtendedLifetime(store) { answered() } }
+    })
 
 enum RemindersPart {
     static func run(_ function: String, _ input: Input) throws -> Any {

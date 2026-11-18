@@ -3,15 +3,24 @@ import Foundation
 
 /// Calendar, through EventKit, which needs full access to the Mac's calendars.
 func run(_ function: String, _ input: Input) throws -> Any {
-    let access: Access = switch EKEventStore.authorizationStatus(for: .event) {
-    case .fullAccess: .granted
-    case .notDetermined: .unasked
-    default: .denied
-    }
-    try need(access, "have full access to your calendars", pane: "Calendars",
-             allow: "set \(thisApp) to Full Access") { EKEventStore().requestFullAccessToEvents { _, _ in } }
+    try calendars.need()
     return try CalendarPart.run(function, input)
 }
+
+let calendars = Permission(
+    "have full access to your calendars", pane: "Calendars", anchor: "Privacy_Calendars",
+    allow: "set \(thisApp) to Full Access",
+    access: {
+        switch EKEventStore.authorizationStatus(for: .event) {
+        case .fullAccess: .allowed
+        case .notDetermined: .unknown
+        default: .denied
+        }
+    },
+    request: { answered in
+        let store = EKEventStore()
+        store.requestFullAccessToEvents { _, _ in withExtendedLifetime(store) { answered() } }
+    })
 
 /// Calendar, through EventKit. Each call opens its own store and is done with what it fetched before
 /// it answers.

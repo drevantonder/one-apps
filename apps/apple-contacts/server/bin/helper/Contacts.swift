@@ -3,10 +3,23 @@ import Foundation
 
 /// Contacts, through the Contacts framework, which needs access to the Mac's contacts.
 func run(_ function: String, _ input: Input) throws -> Any {
-    try need(contactsAccess(), "use your contacts", pane: "Contacts",
-             allow: "turn on \(thisApp)") { CNContactStore().requestAccess(for: .contacts) { _, _ in } }
+    try contacts.need()
     return try ContactsPart.run(function, input)
 }
+
+let contacts = Permission(
+    "use your contacts", pane: "Contacts", anchor: "Privacy_Contacts", allow: "turn on \(thisApp)",
+    access: {
+        switch CNContactStore.authorizationStatus(for: .contacts) {
+        case .authorized, .limited: .allowed
+        case .notDetermined: .unknown
+        default: .denied
+        }
+    },
+    request: { answered in
+        let store = CNContactStore()
+        store.requestAccess(for: .contacts) { _, _ in withExtendedLifetime(store) { answered() } }
+    })
 
 enum ContactsPart {
     static func run(_ function: String, _ input: Input) throws -> Any {
@@ -69,13 +82,5 @@ enum ContactsPart {
             },
             "birthday": birthday, "urls": c.urlAddresses.isEmpty ? nil : c.urlAddresses.map { $0.value as String },
         ])
-    }
-}
-
-func contactsAccess() -> Access {
-    switch CNContactStore.authorizationStatus(for: .contacts) {
-    case .authorized, .limited: .granted
-    case .notDetermined: .unasked
-    default: .denied
     }
 }

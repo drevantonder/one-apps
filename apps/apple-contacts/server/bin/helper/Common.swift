@@ -118,23 +118,63 @@ extension String {
     var nonEmpty: String? { isEmpty ? nil : self }
 }
 
-/// Whether macOS gives this helper a permission.
-enum Access { case granted, denied, unasked }
+/// Where a permission of macOS's stands for this helper. macOS keeps the person's answer under the helper's
+/// signature, so it's allowed or denied from then on, and unknown until they answer.
+enum Access { case allowed, denied, unknown }
 
-/// The permissions asked for this run: each at most once, since macOS shows its question on the Mac's screen and the
-/// call that asked says so rather than waiting for an answer that may come hours later.
-nonisolated(unsafe) var asked = Set<String>()
+/// A permission a call needs, which macOS asks the Mac's person for in this helper's name:
+///
+///     unknown ── a call needs it ──▶ asking: macOS's question is on the Mac's screen ──▶ allowed | denied
+///                                └─▶ not asked: macOS said no without asking, and it's still unknown
+///
+/// A call waits up to `patience` for the answer while macOS asks, so a person at the Mac who clicks Allow gets what
+/// they asked for, and one that waits longer is told macOS is still asking. Denied, it says how to allow it, with the
+/// link that opens System Settings at its pane. `what` finishes "may …", and `allow` says what to do in the pane.
+final class Permission: @unchecked Sendable {
+    let what: String, pane: String, anchor: String, allow: String
+    let access: () -> Access
+    let request: (@escaping @Sendable () -> Void) -> Void
+    /// Signalled once macOS answers the request it's asking, while there's one.
+    private var answer: DispatchSemaphore?
 
-/// Goes on only with `access` granted. Unasked, it asks macOS, once a run, and says where to answer; denied, it says
-/// where to allow it. `what` finishes "may …", and `allow` says what to do in the Settings pane `pane`.
-func need(_ access: Access, _ what: String, pane: String, allow: String, ask: () -> Void) throws {
-    switch access {
-    case .granted:
-        return
-    case .unasked:
-        if asked.insert(pane).inserted { ask() }
-        throw Refusal("Waiting for permission on the Mac: macOS is asking there whether \(thisApp) may \(what). Click Allow on the Mac, then ask again.")
-    case .denied:
-        throw Refusal("macOS doesn't let \(thisApp) \(what). Allow it on the Mac in System Settings → Privacy & Security → \(pane): \(allow).")
+    init(_ what: String, pane: String, anchor: String, allow: String, access: @escaping () -> Access,
+         request: @escaping (@escaping @Sendable () -> Void) -> Void) {
+        (self.what, self.pane, self.anchor, self.allow, self.access, self.request) = (what, pane, anchor, allow, access, request)
+    }
+
+    func need() throws {
+        switch access() {
+        case .allowed: answer = nil; return
+        case .denied: answer = nil; throw denied
+        case .unknown: break
+        }
+        if answer == nil {
+            let answered = DispatchSemaphore(value: 0)
+            answer = answered
+            request { answered.signal() }
+        }
+        guard answer!.wait(timeout: .now() + patience) == .success else {
+            throw Refusal("macOS is asking on the Mac's screen whether \(thisApp) may \(what). Click Allow there, then ask again.")
+        }
+        answer = nil
+        switch access() {
+        case .allowed: return
+        case .denied: throw denied
+        case .unknown:
+            throw Refusal("macOS said no without asking whether \(thisApp) may \(what), so there's nothing to allow on the Mac: " +
+                          "this build of \(thisApp) can't be given it. The Mac's log says why: " +
+                          "log show --last 5m --predicate 'subsystem == \"com.apple.TCC\"'")
+        }
+    }
+
+    var denied: Refusal {
+        Refusal("macOS doesn't let \(thisApp) \(what): it's turned off on the Mac. To allow it, open System Settings → " +
+                "Privacy & Security → \(pane) on the Mac (\(settings(anchor))) and \(allow).")
     }
 }
+
+/// How long a call waits for the Mac's person to answer macOS's question.
+let patience: TimeInterval = 30
+
+/// The link that opens System Settings at the pane of Privacy & Security that `anchor` names.
+func settings(_ anchor: String) -> String { "x-apple.systempreferences:com.apple.preference.security?\(anchor)" }
