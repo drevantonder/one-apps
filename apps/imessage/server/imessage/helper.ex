@@ -1,13 +1,12 @@
 defmodule IMessage.Helper do
   @moduledoc """
-  Runs iMessage for The One App on its Mac: a small app it builds there from `server/helper/`, with
-  swiftc, and starts. It holds the running helper between calls, writes it a line for each call and hands back the
+  Runs iMessage for The One App on its Mac: a small app of its own, built and signed with a Developer ID
+  by `tooling/mac-helper` from `server/bin/helper/`, which it starts. It holds the running helper between calls, writes it a line for each call and hands back the
   line it answers, in turn.
 
   The helper is a macOS app of this app's own, with a name and a purpose for its permission, so that macOS asks the
   Mac's person in its name and keeps the answer for it, through updates of the server that started it, and removing
-  the app removes it and what it was allowed. It's built again only when its source changes, and macOS then asks
-  again, as it does for any changed app that isn't signed by a developer.
+  the app removes it and what it was allowed. It's signed by a developer, so macOS keeps what it's allowed through every build of it.
   """
   use GenServer
   @behaviour OneCore.Service
@@ -19,7 +18,7 @@ defmodule IMessage.Helper do
 
   @impl OneCore.Service
   def needs do
-    "A Mac with Xcode or its Command Line Tools, whose swiftc builds the app it brings, iMessage for The One App, " <>
+    "A Mac with macOS 14 or later, and the app it brings, iMessage for The One App, " <>
       "which reads Messages' database and sends through Messages. Reading needs Full Disk Access, which the Mac's person turns on in System Settings; macOS asks them on its screen to let it control Messages the first time it sends, and to use their contacts, for names."
   end
 
@@ -33,11 +32,7 @@ defmodule IMessage.Helper do
 
   @impl GenServer
   def init(_) do
-    for program <- ["swiftc", "codesign"], System.find_executable(program) == nil do
-      raise "This machine has no #{program}: iMessage for The One App is built on a Mac, with Xcode or its Command Line Tools"
-    end
-
-    {:ok, start(OneCore.Service.folder(self(), "server/helper"))}
+    {:ok, start(OneCore.Service.folder(self(), "server/bin/helper"))}
   end
 
   @impl GenServer
@@ -66,7 +61,7 @@ defmodule IMessage.Helper do
   # new folder: then it's built and started again.
   @impl GenServer
   def code_change(_version, state, _extra) do
-    case OneCore.Service.folder(self(), "server/helper") do
+    case OneCore.Service.folder(self(), "server/bin/helper") do
       folder when folder == state.folder ->
         {:ok, state}
 
@@ -89,23 +84,14 @@ defmodule IMessage.Helper do
     %{folder: folder, helper: helper, waiting: :queue.new(), reading: []}
   end
 
-  # Built under another name and then renamed, so an app that's there is a whole one. Signed for this Mac alone,
-  # which macOS needs of an app before it keeps a permission for it.
+  # The app is the build `tooling/mac-helper` made of it, signed by a developer. Unpacked under another name and then
+  # renamed, so an app that's there is a whole one.
   defp build(folder, app) do
     building = app <> ".building"
     File.rm_rf!(building)
-    File.mkdir_p!(Path.join([building, "Contents", "MacOS"]))
-    File.cp!(Path.join(folder, "Info.plist"), Path.join([building, "Contents", "Info.plist"]))
-    sources = folder |> File.ls!() |> Enum.filter(&String.ends_with?(&1, ".swift")) |> Enum.sort()
-    run(folder, "swiftc", ["-O", "-o", Path.join([building, "Contents", "MacOS", "helper"]) | sources])
-    run(folder, "codesign", ["--force", "--sign", "-", building])
-    File.rename!(building, app)
-  end
-
-  defp run(folder, program, args) do
-    case System.cmd(System.find_executable(program), args, cd: folder, stderr_to_stdout: true) do
-      {_, 0} -> :ok
-      {output, _} -> raise "iMessage for The One App didn't build: #{program} said\n" <> output
-    end
+    File.mkdir_p!(building)
+    {_, 0} = System.cmd("tar", ["-xzf", Path.join(folder, "macos-aarch64"), "-C", building])
+    File.rename!(Path.join(building, Path.basename(app)), app)
+    File.rm_rf!(building)
   end
 end

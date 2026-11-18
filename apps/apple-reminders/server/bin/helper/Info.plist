@@ -3,12 +3,13 @@
 <!-- What macOS shows where it asks for a permission, and in Privacy & Security, under the helper's name. -->
 <plist version="1.0">
 <dict>
-  <key>CFBundleIdentifier</key><string>app.theone.apple-calendar</string>
-  <key>CFBundleName</key><string>Apple Calendar for The One App</string>
+  <key>CFBundleIdentifier</key><string>app.theone.apple-reminders</string>
+  <key>CFBundleName</key><string>Apple Reminders for The One App</string>
   <key>CFBundleExecutable</key><string>helper</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>LSBackgroundOnly</key><true/>
-  <key>NSCalendarsFullAccessUsageDescription</key><string>So your apps and agents can see and change your calendars.</string>
+  <key>NSRemindersFullAccessUsageDescription</key><string>So your apps and agents can see and change your reminders.</string>
 </dict>
 </plist>
