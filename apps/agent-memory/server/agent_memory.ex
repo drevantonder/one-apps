@@ -33,7 +33,7 @@ defmodule AgentMemory do
   def own, do: :installed
 
   @impl true
-  def requires, do: %{"core" => ">= 0.22.18", "database" => "to keep your memory"}
+  def requires, do: %{"core" => ">= 0.24.40", "database" => "to keep your memory"}
 
   @impl true
   def entrypoints, do: [%{page: "client/index.html"}]
@@ -228,7 +228,7 @@ defmodule AgentMemory do
     now = count(m)
     k = Map.get(inputs, "part", 1)
     t = Map.get(inputs, "T", now)
-    if t > now, do: raise("T=#{t}, but the memory holds #{plural(now, "memory")}. Run: agent-memory_wake")
+    if t > now, do: raise(OneCore.Call.Refused, "T=#{t}, but the memory holds #{plural(now, "memory")}. Run: agent-memory_wake")
 
     if t == 0 do
       %{count: 0, part: 1, parts: 1, lines: [], awake: true, next: "No memories yet. Record the first with agent-memory_note.", nap: nil}
@@ -270,7 +270,7 @@ defmodule AgentMemory do
       [{a, b}] ->
         if summary(m, lo, hi) == nil,
           do:
-            raise("Wrong block: #{block}. Blocks are built in order; the next is #{a}-#{b - 1}. Run: agent-memory_nap"),
+            raise(OneCore.Call.Refused, "Wrong block: #{block}. Blocks are built in order; the next is #{a}-#{b - 1}. Run: agent-memory_nap"),
           else: %{saved: nil, nap: next_nap(m, t), left: pending_count(m, t)}
     end
   end
@@ -283,7 +283,7 @@ defmodule AgentMemory do
     pattern =
       case Regex.compile(pattern, "iu") do
         {:ok, pattern} -> pattern
-        {:error, {why, _at}} -> raise "bad regex: #{why}"
+        {:error, {why, _at}} -> raise OneCore.Call.Refused, "bad regex: #{why}"
       end
 
     {hits, tail, _size} =
@@ -353,16 +353,16 @@ defmodule AgentMemory do
 
         cond do
           not (date =~ ~r/^\d{4}-\d{2}-\d{2}$/) ->
-            raise "line #{i}: expected 'YYYY-MM-DD <text>', got: #{line}"
+            raise OneCore.Call.Refused, "line #{i}: expected 'YYYY-MM-DD <text>', got: #{line}"
 
           not match?({:ok, _}, Date.from_iso8601(date)) ->
-            raise "line #{i}: #{date} is not a real date."
+            raise OneCore.Call.Refused, "line #{i}: #{date} is not a real date."
 
           date < last ->
-            raise "line #{i}: date #{date} precedes the previous memory (#{last})."
+            raise OneCore.Call.Refused, "line #{i}: date #{date} precedes the previous memory (#{last})."
 
           body == "" or byte_size(body) > @entry or body =~ "\r" ->
-            raise "line #{i}: #{byte_size(body)} bytes, limit #{@entry}."
+            raise OneCore.Call.Refused, "line #{i}: #{byte_size(body)} bytes, limit #{@entry}."
 
           true ->
             {{date, body}, date}
@@ -477,7 +477,7 @@ defmodule AgentMemory do
           else: {lo, hi}
 
       nil ->
-        raise "'#{id}' is not a block id. Copy it from the prompt, like 16-31."
+        raise OneCore.Call.Refused, "'#{id}' is not a block id. Copy it from the prompt, like 16-31."
     end
   end
 
@@ -487,13 +487,13 @@ defmodule AgentMemory do
 
     cond do
       text == "" ->
-        raise "Empty. A memory is one line of text."
+        raise OneCore.Call.Refused, "Empty. A memory is one line of text."
 
       lines > 1 ->
-        raise "#{lines} lines. A memory is one line: merge them, or note them separately."
+        raise OneCore.Call.Refused, "#{lines} lines. A memory is one line: merge them, or note them separately."
 
       byte_size(text) > @entry ->
-        raise "Too long: #{byte_size(text)} bytes, limit #{@entry}. Accented characters cost 2 bytes. Compress it further."
+        raise OneCore.Call.Refused, "Too long: #{byte_size(text)} bytes, limit #{@entry}. Accented characters cost 2 bytes. Compress it further."
 
       true ->
         text
