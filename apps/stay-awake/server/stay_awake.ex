@@ -31,7 +31,11 @@ defmodule StayAwake do
   def requires, do: %{"core" => ">= 0.22.18"}
 
   @impl true
-  def entrypoints, do: [%{page: "client/index.html"}]
+  def hooks, do: ["settings.sections"]
+
+  # Its switch is a group on the Mac's page in Settings, where its service runs.
+  @impl true
+  def hook("settings.sections", _about, _call), do: [%{in: "device", component: "mac", service: true}]
 
   @impl true
   def widgets, do: [%{tool: "widget", sizes: ["2x2", "4x2"]}]
@@ -81,6 +85,7 @@ defmodule StayAwake do
                 properties:
                   Map.merge(@status.properties, %{
                     name: %{type: ["string", "null"]},
+                    server: %{type: "string", description: "The Mac's server, by its key"},
                     problem: %{type: "string", description: "Why it couldn't be asked: off, or what went wrong"},
                     seen: %{type: "integer", description: "When one that's off was last seen, in milliseconds since 1970"}
                   }),
@@ -147,7 +152,7 @@ defmodule StayAwake do
               end
           end
 
-        Map.put(status, "name", OneCore.Service.name(server))
+        status |> Map.put("name", OneCore.Service.name(server)) |> Map.put("server", server)
       end
 
     %{macs: macs}
