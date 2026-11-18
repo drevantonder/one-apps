@@ -49,10 +49,10 @@ defmodule StayAwake.Mac do
     {:reply, status_of(state), state}
   end
 
-  # A service stops normally only when it's no longer to run on this Mac: it, or its app, was uninstalled. The
-  # server stopping or crashing ends it otherwise, and leaves the Mac held.
+  # It's removed when it's no longer to run on this Mac: it, or its app, was uninstalled. The server stopping or
+  # crashing ends it otherwise, and leaves the Mac held.
   @impl GenServer
-  def terminate(:normal, _state), do: hold(false)
+  def terminate({:shutdown, :removed}, _state), do: hold(false)
   def terminate(_why, _state), do: :ok
 
   # The agent is left as it is when it's already there, so the Mac is never held twice, nor let go meanwhile.
