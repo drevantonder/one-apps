@@ -272,19 +272,20 @@ defmodule AiGateway do
     sent =
       try do
         request = %{
-          url: endpoint(vault.value(call, item, "url")) <> "/chat/completions",
-          method: "post",
-          headers: %{"authorization" => "Bearer {{api_key}}", "content-type" => "application/json"},
-          body: JSON.encode!(Map.put(body, "model", model)),
-          timeout: @timeout
+          "item" => item,
+          "url" => endpoint(vault.value(call, item, "url")) <> "/chat/completions",
+          "method" => "post",
+          "headers" => %{"authorization" => "Bearer {{api_key}}", "content-type" => "application/json"},
+          "body" => JSON.encode!(Map.put(body, "model", model)),
+          "timeout" => @timeout
         }
 
-        vault.fetch(call, item, request)
+        Call.tool(call, "vault", "fetch", request)
       rescue
         problem in RuntimeError -> {:down, problem.message}
       end
 
-    with %{status: status, body: body} <- sent, do: handle_response(call, id, item, status, body, json?)
+    with %{"status" => status, "body" => body} <- sent, do: handle_response(call, id, item, status, body, json?)
   end
 
   defp ask_machines(_call, [], _model, _body, _json?), do: {:down, "No machine of yours that's up has it"}
@@ -425,8 +426,8 @@ defmodule AiGateway do
           do: String.replace_suffix(url, "/v1", "/models/search?format=openrouter"),
           else: url <> "/models"
 
-      case vault.fetch(call, item, %{url: listing, headers: %{"authorization" => "Bearer {{api_key}}"}}) do
-        %{status: status, body: body} when status in 200..299 ->
+      case Call.tool(call, "vault", "fetch", %{"item" => item, "url" => listing, "headers" => %{"authorization" => "Bearer {{api_key}}"}}) do
+        %{"status" => status, "body" => body} when status in 200..299 ->
           listed =
             with {:ok, %{} = response} <- JSON.decode(body), do: response["data"] || response["result"] || [], else: (_ -> [])
 
@@ -439,7 +440,7 @@ defmodule AiGateway do
 
           Map.merge(place, %{up: true, models: Enum.sort_by(models, & &1["name"])})
 
-        %{status: status} ->
+        %{"status" => status} ->
           Map.merge(place, %{up: false, models: [], problem: "It answered #{status} when asked for its models."})
       end
     rescue
