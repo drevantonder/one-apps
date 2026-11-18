@@ -98,7 +98,7 @@ type command struct {
 func main() {
 	log.SetFlags(0)
 	log.SetPrefix("whatsapp link: ")
-	store.SetOSInfo("The One App", [3]uint32{0, 3, 0})
+	store.SetOSInfo("the One App", [3]uint32{0, 3, 0})
 	in := bufio.NewScanner(os.Stdin)
 	in.Buffer(make([]byte, 1<<20), 256<<20)
 	if !in.Scan() {

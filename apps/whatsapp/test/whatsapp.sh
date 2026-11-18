@@ -7,8 +7,8 @@
 #
 #     ONE_APP=~/the-one-app mise exec -C ~/the-one-app -- "$PWD/apps/whatsapp/test/whatsapp.sh"
 #
-# ONE_APP is a checkout of The One App with its client built (`cargo build --release`). The machine needs Go.
-source "${ONE_APP:?a checkout of The One App}/core/server/test/servers.sh"
+# ONE_APP is a checkout of the One App with its client built (`cargo build --release`). The machine needs Go.
+source "${ONE_APP:?a checkout of the One App}/core/server/test/servers.sh"
 app=$(cd "$(dirname "$0")/.." && pwd)
 
 ask() {

@@ -1,6 +1,6 @@
 defmodule AppleCalendar.Helper do
   @moduledoc """
-  Runs Apple Calendar for The One App on its Mac: a small app of its own, built and signed with a Developer ID
+  Runs Apple Calendar for the One App on its Mac: a small app of its own, built and signed with a Developer ID
   by `tooling/mac-helper` from `server/bin/helper/`, which it starts. It holds the running helper between calls, writes it a line for each call and hands back the
   line it answers, in turn.
 
@@ -11,14 +11,14 @@ defmodule AppleCalendar.Helper do
   use GenServer
   @behaviour OneCore.Service
 
-  @app "Apple Calendar for The One App.app"
+  @app "Apple Calendar for the One App.app"
 
   @impl OneCore.Service
-  def called, do: "Apple Calendar for The One App"
+  def called, do: "Apple Calendar for the One App"
 
   @impl OneCore.Service
   def needs do
-    "A Mac with macOS 14 or later, and the app it brings, Apple Calendar for The One App, " <>
+    "A Mac with macOS 14 or later, and the app it brings, Apple Calendar for the One App, " <>
       "which reaches Calendar. macOS asks the Mac's person once, on its screen, to give it full access to their calendars."
   end
 
@@ -54,7 +54,7 @@ defmodule AppleCalendar.Helper do
 
   # The helper stopped by itself, so the service does too, and its server starts both again.
   def handle_info({helper, {:exit_status, status}}, %{helper: helper}) do
-    raise "Apple Calendar for The One App stopped, with status #{status}"
+    raise "Apple Calendar for the One App stopped, with status #{status}"
   end
 
   # A new version of the app. The helper carries on through it unless its own source changed, which gives it a

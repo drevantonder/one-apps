@@ -17,8 +17,8 @@ then.
 whom they asked, and show them the exact text first.
 
 It reaches the Mac through its service `IMessage.Helper`, which runs a small app there, iMessage for
-The One App: `install_service --app imessage --service IMessage.Helper --server <key>` (`services` gives the key);
-reading needs Full Disk Access, which macOS never asks for: until the Mac's person turns it on for iMessage for The
+the One App: `install_service --app imessage --service IMessage.Helper --server <key>` (`services` gives the key);
+reading needs Full Disk Access, which macOS never asks for: until the Mac's person turns it on for iMessage for the
 One App in System Settings → Privacy & Security → Full Disk Access, a tool says so, with the link that opens it there
 and where the app is. macOS asks on the Mac's screen to let it use Contacts the
 first time it reads, and to let it control Messages the first time it sends. Only the Mac's person can answer these.

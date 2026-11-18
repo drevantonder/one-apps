@@ -1,6 +1,6 @@
 defmodule AppleContacts.Helper do
   @moduledoc """
-  Runs Apple Contacts for The One App on its Mac: a small app of its own, built and signed with a Developer ID
+  Runs Apple Contacts for the One App on its Mac: a small app of its own, built and signed with a Developer ID
   by `tooling/mac-helper` from `server/bin/helper/`, which it starts. It holds the running helper between calls, writes it a line for each call and hands back the
   line it answers, in turn.
 
@@ -11,14 +11,14 @@ defmodule AppleContacts.Helper do
   use GenServer
   @behaviour OneCore.Service
 
-  @app "Apple Contacts for The One App.app"
+  @app "Apple Contacts for the One App.app"
 
   @impl OneCore.Service
-  def called, do: "Apple Contacts for The One App"
+  def called, do: "Apple Contacts for the One App"
 
   @impl OneCore.Service
   def needs do
-    "A Mac with macOS 14 or later, and the app it brings, Apple Contacts for The One App, " <>
+    "A Mac with macOS 14 or later, and the app it brings, Apple Contacts for the One App, " <>
       "which reaches Contacts. macOS asks the Mac's person once, on its screen, to let it use their contacts."
   end
 
@@ -54,7 +54,7 @@ defmodule AppleContacts.Helper do
 
   # The helper stopped by itself, so the service does too, and its server starts both again.
   def handle_info({helper, {:exit_status, status}}, %{helper: helper}) do
-    raise "Apple Contacts for The One App stopped, with status #{status}"
+    raise "Apple Contacts for the One App stopped, with status #{status}"
   end
 
   # A new version of the app. The helper carries on through it unless its own source changed, which gives it a

@@ -67,7 +67,7 @@ defmodule AgentsMd.Writer do
 
   defp instructions(text, revisions, home, state) do
     text =
-      "<!-- AGENTS.md in The One App keeps this the same on every device: change it with agents-md_set (`one agents-md set`), and add a skill for every agent with agents-md_skill_set. Edited here, it stays on this device and stops updating. -->\n\n" <>
+      "<!-- AGENTS.md in the One App keeps this the same on every device: change it with agents-md_set (`one agents-md set`), and add a skill for every agent with agents-md_skill_set. Edited here, it stays on this device and stops updating. -->\n\n" <>
         under_comment(text) <> "\n"
 
     written = MapSet.new(revisions, &under_comment/1)

@@ -7,10 +7,10 @@
 #
 #     ONE_APP=~/the-one-app mise exec -C ~/the-one-app -- "$PWD/apps/messenger/test/messenger.sh"
 #
-# ONE_APP is a checkout of The One App with its client built (`cargo build --release`). The machine needs Bun and
+# ONE_APP is a checkout of the One App with its client built (`cargo build --release`). The machine needs Bun and
 # Playwright's Chromium. The sign-in window opens headless here, as nobody is at the screen: the fake is told the
 # person signed in.
-source "${ONE_APP:?a checkout of The One App}/core/server/test/servers.sh"
+source "${ONE_APP:?a checkout of the One App}/core/server/test/servers.sh"
 app=$(cd "$(dirname "$0")/.." && pwd)
 
 ask() {

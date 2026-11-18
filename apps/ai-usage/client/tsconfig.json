@@ -1,5 +1,5 @@
 {
-  // Type checked against the UI library in a checkout of The One App beside this repo's:
+  // Type checked against the UI library in a checkout of the One App beside this repo's:
   // bun install in the-one-app/ui, then tsc -p . here. The server builds the app without checking it.
   "compilerOptions": {
     "target": "es2024",

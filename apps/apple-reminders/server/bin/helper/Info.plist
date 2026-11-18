@@ -4,7 +4,7 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key><string>app.theone.apple-reminders</string>
-  <key>CFBundleName</key><string>Apple Reminders for The One App</string>
+  <key>CFBundleName</key><string>Apple Reminders for the One App</string>
   <key>CFBundleExecutable</key><string>helper</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>

@@ -1,6 +1,6 @@
-# One Apps
+# Apps for the One App
 
-Apps for [The One App](https://github.com/drevantonder/the-one-app) that I made for my own network and share:
+These are apps for [the One App](https://github.com/drevantonder/the-one-app) that I made for my own network and share:
 one folder each in `apps/`, whose `SKILL.md` says what it does.
 
 Install one in your network:

@@ -1,6 +1,6 @@
 defmodule IMessage.Helper do
   @moduledoc """
-  Runs iMessage for The One App on its Mac: a small app of its own, built and signed with a Developer ID
+  Runs iMessage for the One App on its Mac: a small app of its own, built and signed with a Developer ID
   by `tooling/mac-helper` from `server/bin/helper/`, which it starts. It holds the running helper between calls, writes it a line for each call and hands back the
   line it answers, in turn.
 
@@ -11,14 +11,14 @@ defmodule IMessage.Helper do
   use GenServer
   @behaviour OneCore.Service
 
-  @app "iMessage for The One App.app"
+  @app "iMessage for the One App.app"
 
   @impl OneCore.Service
-  def called, do: "iMessage for The One App"
+  def called, do: "iMessage for the One App"
 
   @impl OneCore.Service
   def needs do
-    "A Mac with macOS 14 or later, and the app it brings, iMessage for The One App, " <>
+    "A Mac with macOS 14 or later, and the app it brings, iMessage for the One App, " <>
       "which reads Messages' database and sends through Messages. Reading needs Full Disk Access, which the Mac's person turns on in System Settings; macOS asks them on its screen to let it control Messages the first time it sends, and to use their contacts, for names."
   end
 
@@ -54,7 +54,7 @@ defmodule IMessage.Helper do
 
   # The helper stopped by itself, so the service does too, and its server starts both again.
   def handle_info({helper, {:exit_status, status}}, %{helper: helper}) do
-    raise "iMessage for The One App stopped, with status #{status}"
+    raise "iMessage for the One App stopped, with status #{status}"
   end
 
   # A new version of the app. The helper carries on through it unless its own source changed, which gives it a

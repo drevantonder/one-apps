@@ -8,9 +8,9 @@
 #
 # With SHOTS=<folder>, it takes pictures of the screen there too.
 #
-# ONE_APP is a checkout of The One App with its client built (`cargo build --release`). The servers read the sign-ins
+# ONE_APP is a checkout of the One App with its client built (`cargo build --release`). The servers read the sign-ins
 # in the test's folder, by the variables Claude Code, Codex and OpenCode honour, never this machine's own.
-source "${ONE_APP:?a checkout of The One App}/core/server/test/servers.sh"
+source "${ONE_APP:?a checkout of the One App}/core/server/test/servers.sh"
 app=$(cd "$(dirname "$0")/.." && pwd)
 # What went wrong, from the server's side, before the folder goes.
 set -E
