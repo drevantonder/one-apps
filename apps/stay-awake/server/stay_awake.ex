@@ -24,10 +24,13 @@ defmodule StayAwake do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def entrypoints, do: [%{name: "Stay Awake", page: "client/index.html"}]
+  def requires, do: %{"core" => ">= 0.22.18"}
 
   @impl true
-  def widgets, do: [%{name: "Stay Awake", tool: "widget", sizes: ["2x2", "4x2"]}]
+  def entrypoints, do: [%{page: "client/index.html"}]
+
+  @impl true
+  def widgets, do: [%{tool: "widget", sizes: ["2x2", "4x2"]}]
 
   @impl true
   def tools do

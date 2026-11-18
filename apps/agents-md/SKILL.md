@@ -2,6 +2,7 @@
 name: agents-md
 description: Read before reading or changing the instructions (AGENTS.md, CLAUDE.md) or skills every agent on every device gets.
 metadata:
+  title: "Agent Instructions"
   subtitle: "Rules for your AI"
   about: "The instructions and skills every AI tool on every device follows, like Claude Code and Codex, written in one place. Every change is kept, so you can go back."
   category: AI

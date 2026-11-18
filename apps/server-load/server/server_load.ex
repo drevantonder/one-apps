@@ -17,10 +17,13 @@ defmodule ServerLoad do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def entrypoints, do: [%{name: "Device Activity", page: "client/index.html"}]
+  def requires, do: %{"core" => ">= 0.22.18"}
 
   @impl true
-  def widgets, do: [%{name: "Device Activity", tool: "widget", sizes: ["4x4", "4x2", "2x2"]}]
+  def entrypoints, do: [%{page: "client/index.html"}]
+
+  @impl true
+  def widgets, do: [%{tool: "widget", sizes: ["4x4", "4x2", "2x2"]}]
 
   @impl true
   def tools do

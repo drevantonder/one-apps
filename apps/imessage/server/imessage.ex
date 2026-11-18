@@ -4,10 +4,10 @@ defmodule IMessage do
 
   # It has no app, so it says how it's called and drawn where it's shown, as the App Store.
   @impl true
-  def title, do: "iMessage"
+  def icon, do: "icon.png"
 
   @impl true
-  def icon, do: "icon.png"
+  def requires, do: %{"core" => ">= 0.22.18"}
 
   @chat "the chat: its name as imessage_chats gives it, a part of the name only one chat has, or its id; or a phone number with its country code (+61 400 000 000) or an email address"
   @since %{

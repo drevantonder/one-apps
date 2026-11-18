@@ -4,10 +4,10 @@ defmodule AppleCalendar do
 
   # It has no app, so it says how it's called and drawn where it's shown, as the App Store.
   @impl true
-  def title, do: "Apple Calendar"
+  def icon, do: "icon.png"
 
   @impl true
-  def icon, do: "icon.png"
+  def requires, do: %{"core" => ">= 0.22.18"}
 
   @time "an ISO 8601 date (2026-11-01) or date-time (2026-11-01T09:00); without an offset, in the Mac's time zone"
   @id %{

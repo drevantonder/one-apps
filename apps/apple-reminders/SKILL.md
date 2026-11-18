@@ -2,6 +2,7 @@
 name: apple-reminders
 description: Read when the user asks about their Apple Reminders, or to add, change, tick off or delete one, through their Mac.
 metadata:
+  title: "Apple Reminders"
   subtitle: "Your Mac's reminders"
   about: "Your AI adds, changes and ticks off your Apple Reminders, through your Mac, so they're on your iPhone too."
   category: Connectors

@@ -2,6 +2,7 @@
 name: apple-contacts
 description: Read when the user wants someone's number, email or address from their Apple Contacts, or their own, through their Mac.
 metadata:
+  title: "Apple Contacts"
   subtitle: "Your Mac's contacts"
   about: "Your AI finds anyone's number, email or address in Apple Contacts, through your Mac."
   category: Connectors

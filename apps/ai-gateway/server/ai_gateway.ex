@@ -29,7 +29,7 @@ defmodule AiGateway do
   def own, do: :installed
 
   @impl true
-  def requires, do: %{"core" => ">= 0.20.0", "vault" => "to keep your AI keys"}
+  def requires, do: %{"core" => ">= 0.22.18", "vault" => "to keep your AI keys"}
 
   @impl true
   @impl true

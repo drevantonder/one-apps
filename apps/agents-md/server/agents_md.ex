@@ -21,9 +21,6 @@ defmodule AgentsMd do
   @named %{type: "object", properties: %{name: %{type: "string"}, id: @revision}, required: ["name", "id"]}
 
   @impl true
-  def title, do: "Agent Instructions"
-
-  @impl true
   def icon, do: "icon.svg"
 
   # Its data is the instructions and skills of whoever it's installed for: the network's reach every agent in it.
@@ -31,7 +28,7 @@ defmodule AgentsMd do
   def own, do: :installed
 
   @impl true
-  def requires, do: %{"core" => ">= 0.20.0", "database" => "to keep your instructions and skills"}
+  def requires, do: %{"core" => ">= 0.22.18", "database" => "to keep your instructions and skills"}
 
   @impl true
   def tools do

@@ -71,16 +71,13 @@ defmodule WhatsApp do
   @impl true
   def requires do
     %{
-      "core" => ">= 0.20.0",
+      "core" => ">= 0.22.18",
       "database" => "to keep your messages",
       "vault" => "to keep your WhatsApp sign-in"
     }
   end
 
   # Its page links a phone, as sign_in's own: it's under Accounts in the Vault, not an app on a page.
-  @impl true
-  def title, do: "WhatsApp"
-
   @impl true
   def icon, do: "icon.png"
 

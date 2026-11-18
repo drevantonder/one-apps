@@ -33,10 +33,10 @@ defmodule AgentMemory do
   def own, do: :installed
 
   @impl true
-  def requires, do: %{"core" => ">= 0.20.0", "database" => "to keep your memory"}
+  def requires, do: %{"core" => ">= 0.22.18", "database" => "to keep your memory"}
 
   @impl true
-  def entrypoints, do: [%{name: "Agent Memory", page: "client/index.html"}]
+  def entrypoints, do: [%{page: "client/index.html"}]
 
   @block %{type: "string", description: "a block id, as wake or a nap prompt gives it, like 16-31"}
   # One line of the memory: a memory (`hi` one past `lo`, with its `id` and `date`), or the summary of a block.

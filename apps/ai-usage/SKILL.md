@@ -2,6 +2,7 @@
 name: ai-usage
 description: Read before choosing a model for heavy work, or when the user asks how much of an AI plan is left or whether it lasts to reset.
 metadata:
+  title: "AI Usage"
   subtitle: "What's left of your AI plans"
   about: "See what's left of each AI plan, like Claude and Codex, and whether it lasts until it resets."
   category: AI

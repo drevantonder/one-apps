@@ -4,10 +4,10 @@ defmodule AppleReminders do
 
   # It has no app, so it says how it's called and drawn where it's shown, as the App Store.
   @impl true
-  def title, do: "Apple Reminders"
+  def icon, do: "icon.png"
 
   @impl true
-  def icon, do: "icon.png"
+  def requires, do: %{"core" => ">= 0.22.18"}
 
   @id %{type: "string", description: "the reminder's id, as apple-reminders_list gives it"}
   @priority %{type: "string", enum: ["high", "medium", "low", "none"], description: "high, medium, low or none"}
