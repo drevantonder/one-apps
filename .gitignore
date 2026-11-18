@@ -1,2 +1,3 @@
 # What builds and installs make, which the network never needs from git.
 node_modules/
+/apps/*/server/bin/*/macos-*
