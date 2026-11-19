@@ -1,25 +1,6 @@
 {
-  // Type checked against the UI library in a checkout of the One App beside this repo's:
-  // bun install in the-one-app/ui, then tsc -p . here. The server builds the page without checking it.
-  "compilerOptions": {
-    "target": "es2024",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "lib": ["es2024", "dom", "dom.iterable"],
-    "types": [],
-    "jsx": "preserve",
-    "jsxImportSource": "@solidjs/web",
-    "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "paths": {
-      "ui": ["../../../../the-one-app/ui/src/index.ts"],
-      "solid-js": ["../../../../the-one-app/ui/node_modules/solid-js"],
-      "@solidjs/web": ["../../../../the-one-app/ui/node_modules/@solidjs/web"],
-      "@solidjs/web/jsx-runtime": ["../../../../the-one-app/ui/node_modules/@solidjs/web/types/jsx.d.ts"]
-    }
-  },
-  "include": ["**/*", "../../../../the-one-app/ui/node_modules/vite/client.d.ts"]
+  // Type checked against the UI library in a checkout of the One App beside this repo's, as a deploy checks it:
+  // `bun run lint:app ../one-apps/apps/<app>/client` from the One App's root.
+  "extends": "../../../../the-one-app/core/ui/tsconfig.app.json",
+  "include": ["**/*"]
 }

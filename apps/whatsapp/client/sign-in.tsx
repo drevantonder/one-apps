@@ -2,9 +2,21 @@
 // Accounts, as sign_in's page, with its number after a `#`, it's that account; with none, it links one: it shows the QR code to
 // scan on the phone, and the code to type there for a number.
 import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
-import { render } from "@solidjs/web"
-import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, List, Problem, Row, Screen, Section, Select, Skeleton, Status, Steps, toast } from "ui"
-import "./sign-in.css"
+import { Button, call, changed, confirm, createListCollection, Empty, Field, Image, Input, leave, link, List, Problem, render, Row, Screen, Section, Select, Skeleton, Status, Steps, styles, Text, toast, tokens, View } from "ui"
+import { own } from "./own.ts"
+
+const look = styles({
+  whatsapp: { gap: tokens.grid[6], maxWidth: tokens.length.readable },
+  pairing: { gap: tokens.grid[2], alignItems: "flex-start" },
+  how: { font: tokens.type.small, color: tokens.colour.secondaryLabel },
+  // A QR code is black on white, whatever the scheme, so a phone's camera reads it.
+  qr: { width: own.qr, height: own.qr, marginBlock: tokens.grid[2], borderRadius: tokens.radius.medium, backgroundColor: own.paper },
+  code: { fontFamily: tokens.font.mono, font: tokens.type.title },
+  form: { gap: tokens.grid[4], alignItems: "flex-start" },
+  field: { alignSelf: "stretch" },
+  // Sign Out is the account's last thing, centred under it.
+  out: { alignItems: "center", maxWidth: tokens.length.readable },
+})
 
 /** A linked account, as `whatsapp_accounts` answers it. */
 interface Account {
@@ -51,7 +63,7 @@ function Linking(props: { device: string; phone: string; again: () => void }) {
       setPairing(now)
     }),
   )
-  const tryAgain = <Button variant="outline" onClick={start}>Try Again</Button>
+  const tryAgain = <Button variant="outline" onPress={start}>Try Again</Button>
   return (
     <Section heading="Link a Phone">
       <Switch>
@@ -59,16 +71,18 @@ function Linking(props: { device: string; phone: string; again: () => void }) {
           <Steps steps={["Asking WhatsApp for a code", "Scanning it on the phone"]} at={0} />
         </Match>
         <Match when={pairing().state === "pairing"}>
-          <p class="how">On the phone, open WhatsApp › Settings › Linked devices › Link a device, and scan this code.</p>
-          <img class="qr" src={pairing().qr} alt="The QR code to scan" />
-          <Show when={pairing().code}>
-            <p class="how">Or tap Link with phone number instead, and type this code:</p>
-            <p class="code">{pairing().code}</p>
-          </Show>
-          <p class="how">Recent chats take a few minutes to arrive.</p>
+          <View style={look.pairing}>
+            <Text style={look.how}>On the phone, open WhatsApp › Settings › Linked devices › Link a device, and scan this code.</Text>
+            <Show when={pairing().qr}>{(qr) => <Image src={qr()} alt="The QR code to scan" style={look.qr} />}</Show>
+            <Show when={pairing().code}>
+              <Text style={look.how}>Or tap Link with phone number instead, and type this code:</Text>
+              <Text style={look.code}>{pairing().code}</Text>
+            </Show>
+            <Text style={look.how}>Recent chats take a few minutes to arrive.</Text>
+          </View>
         </Match>
         <Match when={pairing().state === "linked"}>
-          <Empty action={<Button onClick={leave}>Done</Button>}>{pairing().account} is linked. Recent chats take a few minutes to arrive.</Empty>
+          <Empty action={<Button onPress={leave}>Done</Button>}>{pairing().account} is linked. Recent chats take a few minutes to arrive.</Empty>
         </Match>
         <Match when={pairing().state === "ran_out"}>
           <Problem warn heading="The code ran out" text="The phone didn't scan it in time." action={tryAgain} />
@@ -87,25 +101,27 @@ function Linking(props: { device: string; phone: string; again: () => void }) {
 function Link(props: { devices: string[]; again: () => void }) {
   const devices = createListCollection({ items: props.devices.map((d) => ({ value: d, label: d })) })
   const [linking, setLinking] = createSignal<{ device: string; phone: string }>()
-  const start = (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    setLinking({ device: (form.get("device") as string | null) || props.devices[0], phone: String(form.get("phone") || "").trim() })
-  }
+  const [device, setDevice] = createSignal(props.devices[0])
+  const [phone, setPhone] = createSignal("")
+  const start = () => setLinking({ device: device(), phone: phone().trim() })
   return (
     <Show when={!linking()} fallback={<Linking {...linking()!} again={props.again} />}>
       <Section heading="Add Account">
-        <form class="form" onSubmit={start}>
+        <View style={look.form}>
           <Show when={props.devices.length > 1}>
-            <Field label="Link on">
-              <Select.Root name="device" collection={devices} />
-            </Field>
+            <View style={look.field}>
+              <Field label="Link on">
+                <Select.Root collection={devices} value={[device()]} onValueChange={({ value: [one] }) => one && setDevice(one)} />
+              </Field>
+            </View>
           </Show>
-          <Field label="Phone number" hint="Optional: for a code to type on the phone, when this shows on the phone itself.">
-            <Input name="phone" inputMode="tel" autoComplete="tel" placeholder="+61 400 000 000" />
-          </Field>
-          <Button type="submit">Link Account</Button>
-        </form>
+          <View style={look.field}>
+            <Field label="Phone number" hint="Optional: for a code to type on the phone, when this shows on the phone itself.">
+              <Input value={phone()} onChangeText={setPhone} onSubmitEditing={start} inputMode="tel" autoComplete="tel" placeholder="+61 400 000 000" />
+            </Field>
+          </View>
+          <Button onPress={start}>Link Account</Button>
+        </View>
       </Section>
     </Show>
   )
@@ -149,27 +165,27 @@ function AccountView(props: { account: Account }) {
           <Row heading={props.account.device} />
         </List>
       </Section>
-      <div class="out">
-        <Button variant="ghost" class="sign-out" onClick={signOut}>Sign Out</Button>
-      </div>
+      <View style={look.out}>
+        <Button variant="destructive" onPress={signOut}>Sign Out</Button>
+      </View>
     </>
   )
 }
 
 /// The account after the page's `#`, if it was opened for one; else linking another.
-const named = decodeURIComponent(location.hash.slice(1))
+const named = () => decodeURIComponent(link() ?? "")
 
 function WhatsApp(props: { state: { accounts: Account[]; devices: string[] }; again: () => void }) {
-  const account = () => props.state.accounts.find((a) => a.account === named)
+  const account = () => props.state.accounts.find((a) => a.account === named())
   return (
-    <Show when={!named} fallback={<Show when={account()} fallback={<Empty>This account isn't linked any more.</Empty>}><AccountView account={account()!} /></Show>}>
+    <Show when={!named()} fallback={<Show when={account()} fallback={<Empty>This account isn't linked any more.</Empty>}><AccountView account={account()!} /></Show>}>
       <Show
         when={props.state.devices.length}
         fallback={<Problem warn heading="WhatsApp isn't on any of your devices yet" text="Ask your agent to install it on a computer of yours that stays on." />}
       >
-        <div class="whatsapp">
+        <View style={look.whatsapp}>
           <Link devices={props.state.devices} again={props.again} />
-        </div>
+        </View>
       </Show>
     </Show>
   )
@@ -182,8 +198,8 @@ function Page() {
   })
   changed(() => refresh(state))
   return (
-    <Screen heading={named || "WhatsApp"} back onBack={leave}>
-      <Errored fallback={(error, reset) => <Problem heading="Couldn't reach WhatsApp" text={(error() as Error).message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
+    <Screen heading={named() || "WhatsApp"} back onBack={leave}>
+      <Errored fallback={(error, reset) => <Problem heading="Couldn't reach WhatsApp" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
         <Loading fallback={<Skeleton rows={3} />}>
           <WhatsApp state={state()} again={() => refresh(state)} />
         </Loading>
@@ -192,4 +208,4 @@ function Page() {
   )
 }
 
-render(() => <Page />, document.body)
+render(() => <Page />)
