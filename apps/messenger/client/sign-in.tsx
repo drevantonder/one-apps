@@ -2,9 +2,15 @@
 // Accounts, as sign_in's page, with its name after a `#`, it's that account; with none, it signs one in, which opens a window on
 // that device's screen, where you sign in yourself.
 import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
-import { render } from "@solidjs/web"
-import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, Problem, Screen, Section, Select, Skeleton, Steps, toast } from "ui"
-import "./sign-in.css"
+import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, link, Problem, render, Screen, Section, Select, Skeleton, Steps, styles, toast, tokens, View } from "ui"
+
+const look = styles({
+  messenger: { gap: tokens.grid[6], maxWidth: tokens.length.readable },
+  form: { gap: tokens.grid[4], alignItems: "flex-start" },
+  field: { alignSelf: "stretch" },
+  // Sign Out is the account's last thing, centred under it.
+  out: { alignItems: "center", maxWidth: tokens.length.readable },
+})
 
 /** A signed-in account, as `messenger_accounts` answers it. */
 interface Account {
@@ -43,7 +49,7 @@ function SigningIn(props: { account: string; device: string }) {
       setSigning(now)
     }),
   )
-  const tryAgain = <Button variant="outline" onClick={start}>Try Again</Button>
+  const tryAgain = <Button variant="outline" onPress={start}>Try Again</Button>
   return (
     <Switch>
       <Match when={signing().state === "opening" || signing().state === "waiting"}>
@@ -54,7 +60,7 @@ function SigningIn(props: { account: string; device: string }) {
         />
       </Match>
       <Match when={signing().state === "signed_in"}>
-        <Empty action={<Button onClick={leave}>Done</Button>}>{props.account} is signed in.</Empty>
+        <Empty action={<Button onPress={leave}>Done</Button>}>{props.account} is signed in.</Empty>
       </Match>
       <Match when={signing().state === "closed"}>
         <Problem warn heading="The window was closed" text="It closed before Messenger was signed in." action={tryAgain} />
@@ -75,25 +81,27 @@ function SigningIn(props: { account: string; device: string }) {
 function SignIn(props: { devices: string[] }) {
   const devices = createListCollection({ items: props.devices.map((d) => ({ value: d, label: d })) })
   const [signing, setSigning] = createSignal<{ account: string; device: string }>()
-  const start = (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    setSigning({ account: String(form.get("account") || "").trim() || "Personal", device: (form.get("device") as string | null) || props.devices[0] })
-  }
+  const [name, setName] = createSignal("")
+  const [device, setDevice] = createSignal(props.devices[0])
+  const start = () => setSigning({ account: name().trim() || "Personal", device: device() })
   return (
     <Section heading="Add Account">
       <Show when={!signing()} fallback={<SigningIn {...signing()!} />}>
-        <form class="form" onSubmit={start}>
-          <Field label="Name" hint="To tell your accounts apart, like Personal or Work.">
-            <Input name="account" placeholder="Personal" autoCapitalize="words" autoCorrect={false} />
-          </Field>
-          <Show when={props.devices.length > 1}>
-            <Field label="Sign in on" hint="A window opens on its screen.">
-              <Select.Root name="device" collection={devices} />
+        <View style={look.form}>
+          <View style={look.field}>
+            <Field label="Name" hint="To tell your accounts apart, like Personal or Work.">
+              <Input value={name()} onChangeText={setName} onSubmitEditing={start} placeholder="Personal" autoCapitalize="words" autoCorrect={false} />
             </Field>
+          </View>
+          <Show when={props.devices.length > 1}>
+            <View style={look.field}>
+              <Field label="Sign in on" hint="A window opens on its screen.">
+                <Select.Root collection={devices} value={[device()]} onValueChange={({ value: [one] }) => one && setDevice(one)} />
+              </Field>
+            </View>
           </Show>
-          <Button type="submit">Sign In to Messenger</Button>
-        </form>
+          <Button onPress={start}>Sign In to Messenger</Button>
+        </View>
       </Show>
     </Section>
   )
@@ -127,34 +135,34 @@ function AccountView(props: { account: Account; devices: string[] }) {
               warn
               heading="Needs signing in again"
               text="Messenger signed it out."
-              action={<Show when={props.devices.length}><Button variant="outline" onClick={() => setSigning(true)}>Sign In</Button></Show>}
+              action={<Show when={props.devices.length}><Button variant="outline" onPress={() => setSigning(true)}>Sign In</Button></Show>}
             />
           }
         >
           <SigningIn account={props.account.account} device={props.devices[0]} />
         </Show>
       </Show>
-      <div class="out">
-        <Button variant="ghost" class="sign-out" onClick={signOut}>Sign Out</Button>
-      </div>
+      <View style={look.out}>
+        <Button variant="destructive" onPress={signOut}>Sign Out</Button>
+      </View>
     </>
   )
 }
 
 /// The account after the page's `#`, if it was opened for one; else signing another in.
-const named = decodeURIComponent(location.hash.slice(1))
+const named = () => decodeURIComponent(link() ?? "")
 
 function Messenger(props: { state: { accounts: Account[]; devices: string[] }; again: () => void }) {
-  const account = () => props.state.accounts.find((a) => a.account === named)
+  const account = () => props.state.accounts.find((a) => a.account === named())
   return (
-    <Show when={!named} fallback={<Show when={account()} fallback={<Empty>This account isn't signed in any more.</Empty>}><AccountView account={account()!} devices={props.state.devices} /></Show>}>
+    <Show when={!named()} fallback={<Show when={account()} fallback={<Empty>This account isn't signed in any more.</Empty>}><AccountView account={account()!} devices={props.state.devices} /></Show>}>
       <Show
         when={props.state.devices.length}
         fallback={<Problem warn heading="Messenger isn't on any of your devices yet" text="Ask your agent to install its browser on a computer of yours." />}
       >
-        <div class="messenger">
+        <View style={look.messenger}>
           <SignIn devices={props.state.devices} />
-        </div>
+        </View>
       </Show>
     </Show>
   )
@@ -167,8 +175,8 @@ function Page() {
   })
   changed(() => refresh(state))
   return (
-    <Screen heading={named || "Messenger"} back onBack={leave}>
-      <Errored fallback={(error, reset) => <Problem heading="Couldn't reach Messenger" text={(error() as Error).message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
+    <Screen heading={named() || "Messenger"} back onBack={leave}>
+      <Errored fallback={(error, reset) => <Problem heading="Couldn't reach Messenger" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
         <Loading fallback={<Skeleton rows={3} />}>
           <Messenger state={state()} again={() => refresh(state)} />
         </Loading>
@@ -177,4 +185,4 @@ function Page() {
   )
 }
 
-render(() => <Page />, document.body)
+render(() => <Page />)
