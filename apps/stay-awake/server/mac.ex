@@ -19,6 +19,9 @@ defmodule StayAwake.Mac do
   def called, do: "Stay Awake on this Mac"
 
   @impl OneCore.Service
+  def os, do: ["darwin"]
+
+  @impl OneCore.Service
   def needs do
     "A Mac: macOS's caffeinate, which keeps it from sleeping while it's plugged in, run by launchd, and pmset, which says whether it is."
   end
