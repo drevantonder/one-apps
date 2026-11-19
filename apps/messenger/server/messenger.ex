@@ -192,6 +192,7 @@ defmodule Messenger do
       %{
         name: "sign_in",
         ui: "client/sign-in.html",
+        runtime_version: 5,
         description:
           "For the user: opens a browser window on one of their devices at messenger.com, for them to sign in there themselves; never sign in for them. It's kept once their chats show. Signs the first account in again when none is given.",
         inputs: %{
