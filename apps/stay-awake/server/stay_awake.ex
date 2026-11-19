@@ -28,7 +28,7 @@ defmodule StayAwake do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def requires, do: %{"core" => ">= 0.22.18"}
+  def requires, do: %{"core" => ">= 0.30.0"}
 
   @impl true
   def hooks, do: ["settings.sections"]

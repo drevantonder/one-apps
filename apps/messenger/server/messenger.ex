@@ -24,7 +24,7 @@ defmodule Messenger do
   @impl true
   def requires do
     %{
-      "core" => ">= 0.22.18",
+      "core" => ">= 0.30.0",
       "database" => "to keep your messages",
       "vault" => "to keep your Messenger sign-in"
     }
