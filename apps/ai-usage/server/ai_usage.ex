@@ -47,7 +47,7 @@ defmodule AIUsage do
 
   @impl true
   def entrypoints,
-    do: [%{page: "client/index.html", subject: "user"}]
+    do: [%{page: "client/index.html", subject: "user", runtime_version: 5}]
 
   @percent %{type: ["number", "null"], description: "Percent"}
   # One window of a plan: how much of it is used and left, when it resets, and its pace.

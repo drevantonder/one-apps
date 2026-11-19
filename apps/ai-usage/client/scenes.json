@@ -1,0 +1,19 @@
+{
+  "Plans": {
+    "answers": {
+      "ai-usage_status": {
+        "providers": [
+          { "id": "claude", "title": "Claude", "plan": "Max", "account": "Personal · sam@example.com", "machines": ["Sam's Mac"], "active": true, "updated_ago": "2m ago",
+            "session": { "used": 42, "countdown": "in 3h" }, "weekly": { "used": 71, "countdown": "in 2d", "will_last": false },
+            "models": [{ "name": "Opus", "used": 18, "countdown": "in 2d" }] },
+          { "id": "claude", "title": "Claude", "plan": "Max", "account": "Work · sam@work.example", "machines": ["work-pc"], "updated_ago": "1h ago", "outdated": true, "note": "Couldn't reach work-pc",
+            "session": { "used": 5, "countdown": "in 4h" }, "weekly": { "used": 30, "countdown": "in 5d" } },
+          { "id": "codex", "title": "Codex", "plan": "Pro", "machines": ["Sam's Mac"], "updated_ago": "5m ago",
+            "weekly": { "used": 100, "countdown": "in 1d" }, "extra": { "used": 12, "limit": 50 }, "alarm": { "text": "This week's limit is used up", "tone": "warn" } }
+        ]
+      }
+    }
+  },
+  "No sign-ins": { "answers": { "ai-usage_status": { "providers": [] } } },
+  "Can't read": { "answers": { "ai-usage_status": { "providers": [], "problem": "No device with Codex or Claude Code answered" } } }
+}
