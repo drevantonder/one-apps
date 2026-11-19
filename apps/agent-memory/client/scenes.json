@@ -1,0 +1,29 @@
+{
+  "Memory": {
+    "answers": {
+      "agent-memory_wake": {
+        "count": 21,
+        "memory": [
+          { "lo": 1, "hi": 17, "date": "2025-12-01", "text": "Andre's projects: the One App, built in Elixir and Rust; PTC's pilot app on TestFlight." },
+          { "lo": 17, "hi": 19, "date": "2025-12-20", "text": null },
+          { "lo": 19, "hi": 20, "date": "2025-12-30", "text": "Mockups come first for any UI, two or three side by side." },
+          { "lo": 20, "hi": 21, "date": "2025-12-31", "text": "The Mac is a laptop: build there one agent at a time." }
+        ]
+      }
+    }
+  },
+  "Summary open": {
+    "like": "Memory",
+    "taps": ["#1–16 · Dec 1, 2025 · 16 memories"],
+    "answers": {
+      "agent-memory_zoom": {
+        "halves": [
+          { "lo": 1, "hi": 9, "date": "2025-11-20", "text": "The One App's core is Elixir; its renderer is Rust on wgpu." },
+          { "lo": 9, "hi": 17, "date": "2025-12-01", "text": "PTC's pilot app ships through TestFlight without asking." }
+        ]
+      }
+    }
+  },
+  "Nothing yet": { "answers": { "agent-memory_wake": { "count": 0, "memory": [] } } },
+  "Can't load": { "answers": { "agent-memory_wake": { "$error": "Couldn't reach the database" } } }
+}

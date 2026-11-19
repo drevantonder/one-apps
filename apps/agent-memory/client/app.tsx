@@ -1,11 +1,21 @@
 // What agents remember, as they read it when they wake: recent memories word for word, older ones as summaries,
-// oldest first. A summary opens into its two halves, down to the memories themselves. People read; only agents write.
-import { createEffect, createMemo, createSignal, Errored, For, Loading, refresh, Show } from "solid-js"
-import { render } from "@solidjs/web"
-import { Button, call, changed, Empty, Icon, leave, Problem, Screen, Skeleton } from "ui"
-import "./app.css"
+// newest first, so the latest is in sight. A summary opens into its two halves, down to the memories themselves.
+// People read; only agents write.
+import { createMemo, createSignal, Errored, For, Loading, refresh, Show } from "solid-js"
+import { Button, call, changed, Empty, Icon, Pressable, Problem, render, Screen, Skeleton, styles, Text, tokens, View } from "ui"
 
-/// A tool of this app's, answered as the screen reads it.
+const look = styles({
+  lines: { gap: tokens.grid[4], maxWidth: tokens.length.readable },
+  halves: { gap: tokens.grid[4], paddingStart: tokens.grid[4] },
+  line: { gap: tokens.grid[4] },
+  open: { flexDirection: "row", alignItems: "flex-start", gap: tokens.grid[2], borderRadius: tokens.radius.small },
+  caret: { marginTop: tokens.grid[0.5], color: tokens.colour.secondaryLabel, rotate: 0, transitionProperty: ["rotate"], transition: tokens.motion.quick },
+  turned: { rotate: 90 },
+  words: { flexShrink: 1, gap: tokens.grid[0.5], minWidth: 0 },
+  about: { font: tokens.type.small, color: tokens.colour.secondaryLabel },
+  unwritten: { color: tokens.colour.secondaryLabel },
+})
+
 /** A line of memory: one memory (`lo` to `hi` one apart), or a summary of several, and its day. */
 interface Memory {
   lo: number
@@ -23,27 +33,35 @@ const day = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short",
 /// One line: a memory, or a summary that opens into its halves.
 function Line(props: { line: Memory }) {
   const [halves, setHalves] = createSignal<Memory[]>()
-  const toggle = async () => setHalves(halves() ? undefined : await ask<{ halves: Memory[] }>("zoom", { block: `${props.line.lo}-${props.line.hi - 1}` }).then((zoomed) => zoomed.halves, () => undefined))
+  const toggle = async () => setHalves(halves() ? undefined : (await ask<{ halves: Memory[] }>("zoom", { block: `${props.line.lo}-${props.line.hi - 1}` })).halves)
   const words = () => (
-    <span class="words">
-      <span class="about">
+    <View style={look.words}>
+      <Text style={look.about}>
         {name(props.line)}
         {props.line.date && ` · ${day.format(new Date(`${props.line.date}T00:00:00`))}`}
         {!single(props.line) && ` · ${props.line.hi - props.line.lo} memories`}
-      </span>
-      <span class={{ text: true, unwritten: props.line.text === null }}>{props.line.text ?? "Not summarised yet"}</span>
-    </span>
+      </Text>
+      <Text style={props.line.text === null && look.unwritten}>{props.line.text ?? "Not summarised yet"}</Text>
+    </View>
   )
   return (
-    <div class="line">
+    <View style={look.line}>
       <Show when={!single(props.line)} fallback={words()}>
-        <button type="button" class="open press ring" aria-expanded={halves() ? "true" : "false"} onClick={toggle}>
-          <Icon name="caret-right" along />
+        <Pressable role="button" aria-expanded={halves() ? "true" : "false"} onPress={toggle} style={look.open}>
+          <View style={[look.caret, !!halves() && look.turned]}>
+            <Icon name="caret-right" along />
+          </View>
           {words()}
-        </button>
+        </Pressable>
       </Show>
-      <Show when={halves()}>{(halves) => <div class="halves"><Lines lines={halves()} /></div>}</Show>
-    </div>
+      <Show when={halves()}>
+        {(halves) => (
+          <View style={look.halves}>
+            <Lines lines={halves()} />
+          </View>
+        )}
+      </Show>
+    </View>
   )
 }
 
@@ -51,35 +69,22 @@ function Lines(props: { lines: Memory[] }) {
   return <For each={props.lines} keyed={(line) => `${line.lo}-${line.hi}`}>{(line) => <Line line={line()} />}</For>
 }
 
-/// The newest memory is at the bottom: the screen stays there as it grows, unless it's been scrolled up.
-let pinned = true
-addEventListener("scroll", () => (pinned = innerHeight + scrollY >= document.body.scrollHeight - 40), { passive: true })
-
-function Remembered(props: { memory: { count: number; memory: Memory[] } }) {
-  createEffect(() => props.memory.count, () => {
-    if (pinned) scrollTo(0, document.body.scrollHeight)
-  })
-  return (
-    <Show when={props.memory.memory.length} fallback={<Empty>Nothing remembered yet</Empty>}>
-      <div class="lines">
-        <Lines lines={props.memory.memory} />
-      </div>
-    </Show>
-  )
-}
-
 function App() {
   const memory = createMemo(() => ask<{ count: number; memory: Memory[] }>("wake", { format: "json" }))
   changed(() => refresh(memory))
   return (
-    <Screen heading="Agent Memory" back onBack={leave}>
-      <Errored fallback={(error, reset) => <Problem heading="Couldn't load the memory" text={(error() as Error).message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
+    <Screen heading="Agent Memory">
+      <Errored fallback={(error, reset) => <Problem heading="Couldn't load the memory" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
         <Loading fallback={<Skeleton rows={3} />}>
-          <Remembered memory={memory()} />
+          <Show when={memory().memory.length} fallback={<Empty>Nothing remembered yet</Empty>}>
+            <View style={look.lines}>
+              <Lines lines={[...memory().memory].reverse()} />
+            </View>
+          </Show>
         </Loading>
       </Errored>
     </Screen>
   )
 }
 
-render(() => <App />, document.body)
+render(() => <App />)
