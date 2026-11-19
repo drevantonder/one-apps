@@ -85,7 +85,7 @@ function SignIn(props: { devices: string[] }) {
       <Show when={!signing()} fallback={<SigningIn {...signing()!} />}>
         <form class="form" onSubmit={start}>
           <Field label="Name" hint="To tell your accounts apart, like Personal or Work.">
-            <Input name="account" placeholder="Personal" autocapitalize="words" autocorrect="off" />
+            <Input name="account" placeholder="Personal" autoCapitalize="words" autoCorrect={false} />
           </Field>
           <Show when={props.devices.length > 1}>
             <Field label="Sign in on" hint="A window opens on its screen.">

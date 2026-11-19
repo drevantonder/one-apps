@@ -102,7 +102,7 @@ function Link(props: { devices: string[]; again: () => void }) {
             </Field>
           </Show>
           <Field label="Phone number" hint="Optional: for a code to type on the phone, when this shows on the phone itself.">
-            <Input name="phone" type="tel" autocomplete="tel" placeholder="+61 400 000 000" />
+            <Input name="phone" inputMode="tel" autoComplete="tel" placeholder="+61 400 000 000" />
           </Field>
           <Button type="submit">Link Account</Button>
         </form>
