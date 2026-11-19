@@ -20,7 +20,7 @@ defmodule ServerLoad do
   def requires, do: %{"core" => ">= 0.22.18"}
 
   @impl true
-  def entrypoints, do: [%{page: "client/index.html"}]
+  def entrypoints, do: [%{page: "client/index.html", runtime_version: 5}]
 
   @impl true
   def widgets, do: [%{tool: "widget", sizes: ["4x4", "4x2", "2x2"]}]

@@ -1,9 +1,28 @@
 // Device Activity: each device with its memory, CPU, GPU and disk, and the containers it hosts below. The devices
 // fill the room: more columns where there's more of it. Asked again every 5 seconds while it can be seen.
-import { createMemo, Errored, For, Loading, onSettled, refresh, Show } from "solid-js"
-import { render, type JSX } from "@solidjs/web"
-import { Button, call, changed, Empty, leave, List, Problem, Row, Screen, Skeleton } from "ui"
-import "./app.css"
+import { createMemo, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
+import { Button, call, changed, type Element, Empty, List, Problem, render, Row, Screen, Skeleton, styles, Text, tokens, View, visible } from "ui"
+import { sizes } from "./sizes.ts"
+
+const look = styles({
+  // The devices fill the room: one column on a phone, more where there's more of it.
+  devices: { display: "grid", gridTemplateColumns: { fill: sizes.device }, gap: tokens.grid[4], alignItems: "flex-start" },
+  device: { gap: tokens.grid[2], minWidth: 0 },
+  title: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: tokens.grid[2] },
+  name: { flexShrink: 1, font: tokens.type.large, fontWeight: tokens.weight.semibold, lineClamp: 1 },
+  quiet: { font: tokens.type.small, color: tokens.colour.secondaryLabel },
+  // Its stats two across where there's room.
+  stats: { display: "grid", gridTemplateColumns: { fill: sizes.stat }, gap: tokens.grid[2] },
+  stat: { gap: tokens.grid[1.5] },
+  figures: { flexDirection: "row", justifyContent: "space-between", gap: tokens.grid[2] },
+  figure: { font: tokens.type.small },
+  bar: { height: tokens.grid[1.5], borderRadius: tokens.radius.full, backgroundColor: tokens.colour.quinaryLabel, overflow: "hidden" },
+  filled: (width: `${number}%`) => ({ width, height: "100%", borderRadius: tokens.radius.full, backgroundColor: tokens.colour.secondaryLabel }),
+  // Nearly full, which needs someone.
+  full: { backgroundColor: tokens.colour.orange },
+  spark: { flexDirection: "row", alignItems: "flex-end", gap: tokens.length.hairline, height: tokens.grid[6] },
+  sparkBar: (height: `${number}%`) => ({ flexGrow: 1, flexBasis: 0, height, minHeight: tokens.length.hairline, backgroundColor: tokens.colour.secondaryLabel }),
+})
 
 /** Space in bytes: how much is used of how much. */
 interface Space {
@@ -40,70 +59,75 @@ function seen(at: number) {
   return `Seen ${ago.format(Math.round(minutes / (24 * 60)), "day")}`
 }
 
-/// A bar of how full something is: grey, and the warning colour once it's nearly full, which needs someone.
+/// A bar of how full something is: grey, and the warning colour once it's nearly full.
 function Bar(props: { share: number; label: string }) {
   return (
-    <div class={["bar", { full: props.share >= 0.85 }]} role="meter" aria-valuenow={Math.round(props.share * 100)} aria-valuemin="0" aria-valuemax="100" aria-label={props.label}>
-      <div style={{ "inline-size": `${props.share * 100}%` }} />
-    </div>
+    <View role="progressbar" aria-valuenow={Math.round(props.share * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={props.label} style={look.bar}>
+      <View style={[look.filled(`${props.share * 100}%`), props.share >= 0.85 && look.full]} />
+    </View>
   )
 }
 
-/// How busy something was every 5 seconds over two minutes, oldest first, as a line.
-function Line(props: { values: number[]; label: string }) {
-  const points = () => props.values.map((value, i) => `${(i * 100) / Math.max(props.values.length - 1, 1)},${100 - value}`).join(" ")
+/// How busy something was every 5 seconds over two minutes, oldest first, a bar to each.
+function Spark(props: { values: number[]; label: string }) {
   return (
-    <svg class="line" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={props.label}>
-      <polyline points={points()} vector-effect="non-scaling-stroke" />
-    </svg>
+    <View role="img" aria-label={props.label} style={look.spark}>
+      <For each={props.values}>{(value) => <View style={look.sparkBar(`${Math.min(100, value)}%`)} />}</For>
+    </View>
   )
 }
 
-function Stat(props: { label: string; value: string; children?: JSX.Element }) {
+function Stat(props: { label: string; value: string; children?: Element }) {
   return (
-    <div class="stat">
-      <div class="figures">
-        <span class="label">{props.label}</span>
-        <span>{props.value}</span>
-      </div>
+    <View style={look.stat}>
+      <View style={look.figures}>
+        <Text style={look.quiet}>{props.label}</Text>
+        <Text style={look.figure}>{props.value}</Text>
+      </View>
       {props.children}
-    </div>
+    </View>
   )
 }
 
 function DeviceView(props: { device: Device }) {
   const d = () => props.device
   return (
-    <section class="device">
-      <div class="title">
-        <h2>{d().name}</h2>
-        <Show when={!d().problem} fallback={<Show when={d().seen}><span class="about">{seen(d().seen!)}</span></Show>}>
-          <span class="about">Online · {OS[d().os] ?? d().os}</span>
+    <View role="region" aria-label={d().name} style={look.device}>
+      <View style={look.title}>
+        <Text role="heading" aria-level={2} style={look.name}>
+          {d().name}
+        </Text>
+        <Show when={!d().problem} fallback={<Show when={d().seen}>{(at) => <Text style={look.quiet}>{seen(at())}</Text>}</Show>}>
+          <Text style={look.quiet}>Online · {OS[d().os] ?? d().os}</Text>
         </Show>
-      </div>
+      </View>
       <Show when={!d().problem}>
-        <div class="stats">
+        <View style={look.stats}>
           <Show when={d().memory}>
-            <Stat label="Memory" value={`${size(d().memory!.used, GiB)} of ${size(d().memory!.total, GiB)}`}>
-              <Bar share={share(d().memory)!} label="Memory" />
-            </Stat>
+            {(memory) => (
+              <Stat label="Memory" value={`${size(memory().used, GiB)} of ${size(memory().total, GiB)}`}>
+                <Bar share={share(memory())!} label="Memory" />
+              </Stat>
+            )}
           </Show>
           <Show when={d().cpu.length}>
             <Stat label="CPU" value={`${d().cpu.at(-1)}%`}>
-              <Line values={d().cpu} label="CPU over two minutes" />
+              <Spark values={d().cpu} label="CPU over two minutes" />
             </Stat>
           </Show>
           <Show when={d().gpu.length}>
             <Stat label="GPU" value={`${d().gpu.at(-1)}%`}>
-              <Line values={d().gpu} label="GPU over two minutes" />
+              <Spark values={d().gpu} label="GPU over two minutes" />
             </Stat>
           </Show>
           <Show when={d().disk}>
-            <Stat label="Disk" value={`${size(d().disk!.total - d().disk!.used)} free`}>
-              <Bar share={share(d().disk)!} label="Disk" />
-            </Stat>
+            {(disk) => (
+              <Stat label="Disk" value={`${size(disk().total - disk().used)} free`}>
+                <Bar share={share(disk())!} label="Disk" />
+              </Stat>
+            )}
           </Show>
-        </div>
+        </View>
         <Show when={d().containers.length}>
           <List>
             <For each={d().containers} keyed={(c) => c.name}>
@@ -112,29 +136,26 @@ function DeviceView(props: { device: Device }) {
           </List>
         </Show>
       </Show>
-    </section>
+    </View>
   )
 }
 
 function App() {
   const devices = createMemo(() => call("server-load_now").then((text): Device[] => JSON.parse(text).devices))
   changed(() => refresh(devices))
-  onSettled(() => {
-    const again = () => document.visibilityState === "visible" && refresh(devices)
-    const every = setInterval(again, 5000)
-    document.addEventListener("visibilitychange", again)
-    return () => (clearInterval(every), document.removeEventListener("visibilitychange", again))
-  })
+  // Asked again every 5 seconds while it can be seen.
+  const every = setInterval(() => visible() && refresh(devices), 5000)
+  onCleanup(() => clearInterval(every))
   return (
-    <Screen heading="Device Activity" back onBack={leave}>
-      <Errored fallback={(error, reset) => <Problem heading="Couldn't measure your devices" text={(error() as Error).message} action={<Button variant="outline" onClick={reset}>Try again</Button>} />}>
+    <Screen heading="Device Activity">
+      <Errored fallback={(error, reset) => <Problem heading="Couldn't measure your devices" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
         <Loading fallback={<Skeleton rows={3} />}>
           <Show when={devices().length} fallback={<Empty>No device is measured yet</Empty>}>
-            <div class="devices">
+            <View style={look.devices}>
               <For each={devices()} keyed={(d) => d.server}>
                 {(d) => <DeviceView device={d()} />}
               </For>
-            </div>
+            </View>
           </Show>
         </Loading>
       </Errored>
@@ -142,4 +163,4 @@ function App() {
   )
 }
 
-render(() => <App />, document.body)
+render(() => <App />)

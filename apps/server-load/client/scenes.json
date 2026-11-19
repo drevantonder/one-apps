@@ -1,0 +1,15 @@
+{
+  "Devices": {
+    "answers": {
+      "server-load_now": {
+        "devices": [
+          { "server": "a", "name": "Sam's Mac", "os": "macos", "memory": { "used": 12884901888, "total": 17179869184 }, "cpu": [12, 18, 25, 40, 33, 20, 15, 60, 72, 45, 30, 22], "gpu": [5, 5, 8, 12, 30, 28, 10, 6, 4, 4, 5, 9], "disk": { "used": 420000000000, "total": 494000000000 },
+            "containers": [{ "name": "build-box", "kind": "podman", "memory": { "used": 1073741824, "total": 4294967296 } }] },
+          { "server": "b", "name": "home-server", "os": "linux", "memory": { "used": 3221225472, "total": 34359738368 }, "cpu": [3, 4, 2, 5, 3, 2, 4, 3, 2, 6, 4, 3], "gpu": [], "disk": { "used": 200000000000, "total": 2000000000000 }, "containers": [] },
+          { "server": "c", "name": "old-laptop", "os": "linux", "problem": "offline", "seen": 1767218400000, "cpu": [], "gpu": [], "containers": [] }
+        ]
+      }
+    }
+  },
+  "Nothing measured": { "answers": { "server-load_now": { "devices": [] } } }
+}
