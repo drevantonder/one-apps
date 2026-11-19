@@ -7,7 +7,7 @@ defmodule AppleReminders do
   def icon, do: "icon.png"
 
   @impl true
-  def requires, do: %{"core" => ">= 0.22.18"}
+  def requires, do: %{"core" => ">= 0.32.47"}
 
   @id %{type: "string", description: "the reminder's id, as apple-reminders_list gives it"}
   @priority %{type: "string", enum: ["high", "medium", "low", "none"], description: "high, medium, low or none"}

@@ -17,6 +17,9 @@ defmodule AppleCalendar.Helper do
   def called, do: "Apple Calendar for the One App"
 
   @impl OneCore.Service
+  def os, do: ["darwin"]
+
+  @impl OneCore.Service
   def needs do
     "A Mac with macOS 14 or later, and the app it brings, Apple Calendar for the One App, " <>
       "which reaches Calendar. macOS asks the Mac's person once, on its screen, to give it full access to their calendars."

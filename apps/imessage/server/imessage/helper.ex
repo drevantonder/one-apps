@@ -17,6 +17,9 @@ defmodule IMessage.Helper do
   def called, do: "iMessage for the One App"
 
   @impl OneCore.Service
+  def os, do: ["darwin"]
+
+  @impl OneCore.Service
   def needs do
     "A Mac with macOS 14 or later, and the app it brings, iMessage for the One App, " <>
       "which reads Messages' database and sends through Messages. Reading needs Full Disk Access, which the Mac's person turns on in System Settings; macOS asks them on its screen to let it control Messages the first time it sends, and to use their contacts, for names."

@@ -28,7 +28,7 @@ defmodule AgentsMd do
   def own, do: :installed
 
   @impl true
-  def requires, do: %{"core" => ">= 0.22.18", "database" => "to keep your instructions and skills"}
+  def requires, do: %{"core" => ">= 0.32.47", "database" => "to keep your instructions and skills"}
 
   @impl true
   def tools do

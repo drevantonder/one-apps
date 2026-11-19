@@ -17,6 +17,9 @@ defmodule AppleReminders.Helper do
   def called, do: "Apple Reminders for the One App"
 
   @impl OneCore.Service
+  def os, do: ["darwin"]
+
+  @impl OneCore.Service
   def needs do
     "A Mac with macOS 14 or later, and the app it brings, Apple Reminders for the One App, " <>
       "which reaches Reminders. macOS asks the Mac's person once, on its screen, to let it use their reminders."

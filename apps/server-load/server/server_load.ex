@@ -17,7 +17,7 @@ defmodule ServerLoad do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def requires, do: %{"core" => ">= 0.22.18"}
+  def requires, do: %{"core" => ">= 0.32.47"}
 
   @impl true
   def entrypoints, do: [%{page: "client/index.html", runtime_version: 5}]

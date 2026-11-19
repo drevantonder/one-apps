@@ -7,7 +7,7 @@ defmodule AppleContacts do
   def icon, do: "icon.png"
 
   @impl true
-  def requires, do: %{"core" => ">= 0.22.18"}
+  def requires, do: %{"core" => ">= 0.32.47"}
 
   # A contact's card, with only what it has.
   @labeled &%{

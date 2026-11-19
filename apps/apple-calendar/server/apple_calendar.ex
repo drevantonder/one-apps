@@ -7,7 +7,7 @@ defmodule AppleCalendar do
   def icon, do: "icon.png"
 
   @impl true
-  def requires, do: %{"core" => ">= 0.22.18"}
+  def requires, do: %{"core" => ">= 0.32.47"}
 
   @time "an ISO 8601 date (2026-11-01) or date-time (2026-11-01T09:00); without an offset, in the Mac's time zone"
   @id %{

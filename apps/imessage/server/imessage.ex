@@ -7,7 +7,7 @@ defmodule IMessage do
   def icon, do: "icon.png"
 
   @impl true
-  def requires, do: %{"core" => ">= 0.22.18"}
+  def requires, do: %{"core" => ">= 0.32.47"}
 
   @chat "the chat: its name as imessage_chats gives it, a part of the name only one chat has, or its id; or a phone number with its country code (+61 400 000 000) or an email address"
   @since %{
