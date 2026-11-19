@@ -2,7 +2,7 @@
 // Accounts, as sign_in's page, with its number after a `#`, it's that account; with none, it links one: it shows the QR code to
 // scan on the phone, and the code to type there for a number.
 import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
-import { Button, call, changed, confirm, createListCollection, Empty, Field, Image, Input, leave, link, List, Problem, render, Row, Screen, Section, Select, Skeleton, Status, Steps, styles, Text, toast, tokens, View } from "ui"
+import { Button, call, changed, confirm, Empty, Field, Image, Input, leave, link, List, Problem, render, Row, Screen, Section, Select, Skeleton, Status, Steps, styles, Text, toast, tokens, View } from "ui"
 import { own } from "./own.ts"
 
 const look = styles({
@@ -99,7 +99,7 @@ function Linking(props: { device: string; phone: string; again: () => void }) {
 }
 
 function Link(props: { devices: string[]; again: () => void }) {
-  const devices = createListCollection({ items: props.devices.map((d) => ({ value: d, label: d })) })
+  const devices = props.devices.map((d) => ({ value: d, label: d }))
   const [linking, setLinking] = createSignal<{ device: string; phone: string }>()
   const [device, setDevice] = createSignal(props.devices[0])
   const [phone, setPhone] = createSignal("")
@@ -111,7 +111,7 @@ function Link(props: { devices: string[]; again: () => void }) {
           <Show when={props.devices.length > 1}>
             <View style={look.field}>
               <Field label="Link on">
-                <Select.Root collection={devices} value={[device()]} onValueChange={({ value: [one] }) => one && setDevice(one)} />
+                <Select.Root items={devices} value={device()} onValueChange={setDevice} />
               </Field>
             </View>
           </Show>

@@ -2,7 +2,7 @@
 // Accounts, as sign_in's page, with its name after a `#`, it's that account; with none, it signs one in, which opens a window on
 // that device's screen, where you sign in yourself.
 import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
-import { Button, call, changed, confirm, createListCollection, Empty, Field, Input, leave, link, Problem, render, Screen, Section, Select, Skeleton, Steps, styles, toast, tokens, View } from "ui"
+import { Button, call, changed, confirm, Empty, Field, Input, leave, link, Problem, render, Screen, Section, Select, Skeleton, Steps, styles, toast, tokens, View } from "ui"
 
 const look = styles({
   messenger: { gap: tokens.grid[6], maxWidth: tokens.length.readable },
@@ -79,7 +79,7 @@ function SigningIn(props: { account: string; device: string }) {
 }
 
 function SignIn(props: { devices: string[] }) {
-  const devices = createListCollection({ items: props.devices.map((d) => ({ value: d, label: d })) })
+  const devices = props.devices.map((d) => ({ value: d, label: d }))
   const [signing, setSigning] = createSignal<{ account: string; device: string }>()
   const [name, setName] = createSignal("")
   const [device, setDevice] = createSignal(props.devices[0])
@@ -96,7 +96,7 @@ function SignIn(props: { devices: string[] }) {
           <Show when={props.devices.length > 1}>
             <View style={look.field}>
               <Field label="Sign in on" hint="A window opens on its screen.">
-                <Select.Root collection={devices} value={[device()]} onValueChange={({ value: [one] }) => one && setDevice(one)} />
+                <Select.Root items={devices} value={device()} onValueChange={setDevice} />
               </Field>
             </View>
           </Show>

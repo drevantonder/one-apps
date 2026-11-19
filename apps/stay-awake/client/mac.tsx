@@ -31,7 +31,7 @@ export default function StayAwake(props: { server?: string }) {
               <Row
                 heading="Stay Online with the Lid Shut"
                 text={mac().problem ?? (mac().on && !mac().plugged_in ? "On battery, so it sleeps as usual." : "While it's plugged in.")}
-                end={<Switch aria-label="Stay Online with the Lid Shut" checked={!mac().problem && !!mac().on} disabled={!!mac().problem} onChange={(event) => set(event.currentTarget.checked)} />}
+                end={<Switch aria-label="Stay Online with the Lid Shut" value={!mac().problem && !!mac().on} disabled={!!mac().problem} onValueChange={set} />}
               />
             </List>
           )}
