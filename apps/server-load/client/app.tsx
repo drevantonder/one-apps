@@ -129,10 +129,8 @@ function DeviceView(props: { device: Device }) {
           </Show>
         </View>
         <Show when={d().containers.length}>
-          <List>
-            <For each={d().containers} keyed={(c) => c.name}>
-              {(c) => <Row heading={c().name} text={c().kind === "podman" ? "Podman" : "Container"} end={c().memory ? size(c().memory!.used, GiB) : undefined} />}
-            </For>
+          <List each={d().containers} keyed={(c) => c.name}>
+            {(c) => <Row heading={c().name} text={c().kind === "podman" ? "Podman" : "Container"} end={c().memory ? size(c().memory!.used, GiB) : undefined} />}
           </List>
         </Show>
       </Show>
