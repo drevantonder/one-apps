@@ -1,0 +1,21 @@
+{
+  "Models and keys": {
+    "component": "gateway",
+    "answers": {
+      "ai-gateway_models": {
+        "places": [
+          { "name": "workspace", "kind": "machine", "server": "w", "up": true, "models": [{ "id": "local/qwen3-vl", "name": "qwen3-vl", "vision": true }, { "id": "local/gemma3", "name": "gemma3", "vision": false }] },
+          { "name": "Mac", "kind": "machine", "server": "m", "up": false, "seen": 1767218400000, "models": [] },
+          { "name": "Workers AI", "kind": "hosted", "up": true, "models": [{ "id": "Workers AI/llama-3.3-70b", "name": "llama-3.3-70b" }] },
+          { "name": "OpenRouter", "kind": "hosted", "up": false, "problem": "It answered 401", "models": [] }
+        ],
+        "jobs": [
+          { "job": "chat", "models": ["local/gemma3", "Workers AI/llama-3.3-70b"], "whose": "yours" },
+          { "job": "extract-receipts", "models": ["Workers AI/llama-3.3-70b"], "whose": "everyone's" }
+        ]
+      }
+    }
+  },
+  "No models": { "component": "gateway", "answers": { "ai-gateway_models": { "places": [], "jobs": [] } } },
+  "Can't read": { "component": "gateway", "answers": { "ai-gateway_models": { "$error": "No machine of yours answered" } } }
+}

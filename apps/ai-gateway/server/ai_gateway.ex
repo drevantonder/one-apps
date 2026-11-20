@@ -31,6 +31,14 @@ defmodule AiGateway do
   @impl true
   def requires, do: %{"core" => ">= 0.22.18", "vault" => "to keep your AI keys"}
 
+  # What a person can see and change of it is on its page in Settings: which model each job uses, where models run and
+  # which keys are set.
+  @impl true
+  def hooks, do: ["settings.sections"]
+
+  @impl true
+  def hook("settings.sections", _about, _call), do: [%{in: "app", component: "gateway"}]
+
   @impl true
   @impl true
   def tools do

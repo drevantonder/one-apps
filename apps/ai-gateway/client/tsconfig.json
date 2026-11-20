@@ -1,0 +1,6 @@
+{
+  // Type checked against the UI library in a checkout of the One App beside this repo's, as a deploy checks it:
+  // `bun run lint:app ../one-apps/apps/<app>/client` from the One App's root.
+  "extends": "../../../../the-one-app/core/ui/tsconfig.app.json",
+  "include": ["**/*"]
+}
