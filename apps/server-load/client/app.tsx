@@ -1,5 +1,6 @@
-// Device Activity: each device with its memory, CPU, GPU and disk, and the containers it hosts below. The devices
-// fill the room: more columns where there's more of it. Asked again every 5 seconds while it can be seen.
+// Device Activity: each device with its memory, CPU, GPU and disk, and the containers it hosts below, then each that
+// says whether it's on its charger, as a phone does. The devices fill the room: more columns where there's more of it.
+// Asked again every 5 seconds while it can be seen.
 import { createMemo, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
 import { Button, call, changed, type Element, Empty, List, Problem, render, Row, Screen, Skeleton, styles, Text, tokens, View, visible } from "ui"
 import { sizes } from "./sizes.ts"
@@ -44,6 +45,14 @@ interface Device {
   containers: { name: string; kind?: string; memory?: Space }[]
 }
 
+/** A device that says whether it's on its charger, as `server-load_now` answers it. */
+interface Power {
+  device: string
+  name: string | null
+  charging: boolean
+  since: number
+}
+
 const GB = 1e9
 const GiB = 2 ** 30
 // Bytes as GB: memory counts them in 2^30s, as macOS and Activity Monitor do, disks in 10^9s.
@@ -57,6 +66,15 @@ function seen(at: number) {
   if (minutes > -60) return `Seen ${ago.format(Math.min(minutes, -1), "minute")}`
   if (minutes > -48 * 60) return `Seen ${ago.format(Math.round(minutes / 60), "hour")}`
   return `Seen ${ago.format(Math.round(minutes / (24 * 60)), "day")}`
+}
+
+const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
+const day = new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })
+/// Since when a device has been on its charger or off it: "On the charger since 22:14", or with its day before today.
+function charger(power: Power) {
+  const at = new Date(power.since)
+  const when = at.toDateString() === new Date().toDateString() ? time.format(at) : day.format(at)
+  return `${power.charging ? "On the charger" : "Off the charger"} since ${when}`
 }
 
 /// A bar of how full something is: grey, and the warning colour once it's nearly full.
@@ -138,20 +156,36 @@ function DeviceView(props: { device: Device }) {
   )
 }
 
+function PowerView(props: { power: Power }) {
+  return (
+    <View role="region" aria-label={props.power.name ?? "Device"} style={look.title}>
+      <Text role="heading" aria-level={2} style={look.name}>
+        {props.power.name ?? "Device"}
+      </Text>
+      <Text style={look.quiet}>{charger(props.power)}</Text>
+    </View>
+  )
+}
+
 function App() {
-  const devices = createMemo(() => call("server-load_now").then((text): Device[] => JSON.parse(text).devices))
-  changed(() => refresh(devices))
+  const now = createMemo(() => call("server-load_now").then((text): { devices: Device[]; power: Power[] } => JSON.parse(text)))
+  const devices = () => now().devices
+  const power = () => now().power
+  changed(() => refresh(now))
   // Asked again every 5 seconds while it can be seen.
-  const every = setInterval(() => visible() && refresh(devices), 5000)
+  const every = setInterval(() => visible() && refresh(now), 5000)
   onCleanup(() => clearInterval(every))
   return (
     <Screen heading="Device Activity">
       <Errored fallback={(error, reset) => <Problem heading="Couldn't measure your devices" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
         <Loading fallback={<Skeleton rows={3} />}>
-          <Show when={devices().length} fallback={<Empty>No device is measured yet</Empty>}>
+          <Show when={devices().length || power().length} fallback={<Empty>No device is measured yet</Empty>}>
             <View style={look.devices}>
               <For each={devices()} keyed={(d) => d.server}>
                 {(d) => <DeviceView device={d()} />}
+              </For>
+              <For each={power()} keyed={(p) => p.device}>
+                {(p) => <PowerView power={p()} />}
               </For>
             </View>
           </Show>
