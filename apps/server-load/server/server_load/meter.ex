@@ -1,7 +1,7 @@
 defmodule ServerLoad.Meter do
   @moduledoc """
   Measures the machine it runs on, with a program of its own: `server/meter/main.rs`, which it builds there and
-  starts.
+  starts, or on Windows, which has no Rust compiler, `server/meter/meter.ps1`, which PowerShell runs as it is.
 
   It holds the running program between calls. Asked for a measurement, it writes the program a line and reads
   the line that comes back.
@@ -13,10 +13,12 @@ defmodule ServerLoad.Meter do
   def called, do: "Device Activity's meter"
 
   @impl OneCore.Service
-  def os, do: ["linux", "darwin"]
+  def os, do: ["linux", "darwin", "win32"]
 
   @impl OneCore.Service
-  def needs, do: "Rust's compiler, rustc, on the machine, to build the program that measures it. Linux or Mac."
+  def needs,
+    do:
+      "On Linux or a Mac, Rust's compiler, rustc, on the machine, to build the program that measures it. On Windows, PowerShell, which it has."
 
   @doc "This machine's processors, its load over the last 1, 5 and 15 minutes, and since when it's measured."
   def now(service), do: GenServer.call(service, :now)
@@ -57,9 +59,18 @@ defmodule ServerLoad.Meter do
   # The program reads lines until its input closes, which is when this process ends or closes it. So nothing
   # more is needed to stop it.
   defp start(folder) do
-    built = Path.join(folder, "meter")
-    if not File.exists?(built), do: build(folder, built)
-    %{folder: folder, program: Port.open({:spawn_executable, built}, [:binary, :exit_status, line: 4096])}
+    case :os.type() do
+      {:win32, _} ->
+        powershell = System.find_executable("powershell") || raise "This machine has no PowerShell to run the meter with"
+        script = Path.join(folder, "meter.ps1")
+        args = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script]
+        %{folder: folder, program: Port.open({:spawn_executable, powershell}, [:binary, :exit_status, :hide, args: args, line: 4096])}
+
+      _ ->
+        built = Path.join(folder, "meter")
+        if not File.exists?(built), do: build(folder, built)
+        %{folder: folder, program: Port.open({:spawn_executable, built}, [:binary, :exit_status, line: 4096])}
+    end
   end
 
   # Built under another name and then renamed, so a program that's there is a whole one.

@@ -52,9 +52,9 @@ defmodule ServerLoad do
                 properties: %{
                   server: %{type: "string", description: "Its server key"},
                   name: %{type: ["string", "null"]},
-                  problem: %{type: "string", description: "Why it isn't measured now: off, or its meter failed"},
+                  problem: %{type: "string", description: "Why it isn't measured now: off, its meter isn't running on it, or its meter failed"},
                   seen: %{type: "integer", description: "When one that's off was last seen, in milliseconds since 1970"},
-                  os: %{type: "string", description: "linux or macos"},
+                  os: %{type: "string", description: "linux, macos or windows"},
                   processors: %{type: "integer"},
                   load: %{type: "array", items: %{type: "number"}, description: "Load average over 1, 5 and 15 minutes"},
                   container: %{type: "string", description: "If it is a container, its name on its host, which doesn't list it again"},
@@ -164,23 +164,30 @@ defmodule ServerLoad do
     end)
   end
 
-  # Every device measured, or the one with the server key `only`: what its meter says now, or for one that's off,
-  # when it was last seen. One that's known to be off isn't asked. Where nothing keeps who's on, as with no address,
-  # every one is.
+  # Every device, or the one with the server key `only`: what its meter says now, or for one that's off, when it was
+  # last seen, or for one with no meter, that it isn't measured, as Task Manager and Activity Monitor show the device
+  # they run on and a person doesn't wonder where one went. One that's known to be off isn't asked. Where nothing keeps
+  # who's on, as with no address, every one is.
   defp devices(call, only \\ nil) do
-    servers = OneCore.Service.servers(call, Meter)
+    metered = OneCore.Service.servers(call, Meter)
+    servers = Enum.uniq(metered ++ OneCore.Apps.covering(OneCore.User.owner(call.subject) || "network"))
     servers = if only, do: Enum.filter(servers, &(&1 == only)), else: servers
     {off, on} = Enum.split_with(servers, &is_integer(OneCore.Service.seen(&1)))
+    {metered_on, unmetered_on} = Enum.split_with(on, &(&1 in metered))
 
     off =
       for server <- off do
         seen = OneCore.Service.seen(server)
-        %{"server" => server, "name" => OneCore.Service.name(server), "problem" => "It's off.", "seen" => seen}
+        problem = if server in metered, do: "It's off.", else: unmeasured()
+        %{"server" => server, "name" => OneCore.Service.name(server), "problem" => problem, "seen" => seen}
       end
 
-    devices = Enum.map(on, &measure(call, &1)) ++ off
+    unmeasured = for server <- unmetered_on, do: %{"server" => server, "name" => OneCore.Service.name(server), "problem" => unmeasured()}
+    devices = Enum.map(metered_on, &measure(call, &1)) ++ unmeasured ++ off
     Enum.sort_by(without_devices(devices), &String.downcase(&1["name"] || ""))
   end
+
+  defp unmeasured, do: "Not measured: its meter isn't running on it."
 
   # A container that is a device itself is listed as that device, with its own readings, and not again under its host.
   # One that's on says it's a container; one that's off, as a server is while it restarts on an update, says nothing,

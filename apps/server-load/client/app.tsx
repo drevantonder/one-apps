@@ -58,7 +58,7 @@ const GiB = 2 ** 30
 // Bytes as GB: memory counts them in 2^30s, as macOS and Activity Monitor do, disks in 10^9s.
 const size = (b: number, g = GB) => (b >= 10 * g ? `${Math.round(b / g)} GB` : b >= g ? `${(b / g).toFixed(1)} GB` : `${Math.round(b / (g / 1000))} MB`)
 const share = (space?: Space) => (space?.total ? space.used / space.total : null)
-const OS: Record<string, string> = { linux: "Linux", macos: "macOS" }
+const OS: Record<string, string> = { linux: "Linux", macos: "macOS", windows: "Windows" }
 const ago = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
 /// How long ago `at` was, in the largest unit that's whole: "Seen 2 minutes ago".
 function seen(at: number) {
@@ -119,6 +119,9 @@ function DeviceView(props: { device: Device }) {
           <Text style={look.quiet}>Online · {OS[d().os] ?? d().os}</Text>
         </Show>
       </View>
+      <Show when={d().problem && !d().seen}>
+        <Text style={look.quiet}>{d().problem}</Text>
+      </Show>
       <Show when={!d().problem}>
         <View style={look.stats}>
           <Show when={d().memory}>
