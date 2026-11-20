@@ -183,8 +183,10 @@ defmodule ServerLoad do
   end
 
   # A container that is a device itself is listed as that device, with its own readings, and not again under its host.
+  # One that's on says it's a container; one that's off, as a server is while it restarts on an update, says nothing,
+  # so it's known by its name, which is its host name, as the container's is.
   defp without_devices(devices) do
-    own = for %{"container" => name} <- devices, into: MapSet.new(), do: name
+    own = for device <- devices, into: MapSet.new(), do: device["container"] || device["name"]
 
     for device <- devices do
       Map.update(device, "containers", [], fn containers -> Enum.reject(containers, &(&1["name"] in own)) end)
