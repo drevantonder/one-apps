@@ -41,9 +41,9 @@ defmodule AIUsage do
   @impl true
   def requires, do: %{"core" => ">= 0.22.18", "database" => "to keep your usage readings"}
 
-  # Fresh readings every five minutes, so the pace has readings far enough apart to say when a window runs out.
-  @impl true
-  def jobs, do: [%{tool: "status", every: 300}]
+  # Fresh readings every five minutes, so the pace has readings far enough apart to say when a window runs out: a
+  # person's timer, set as they ask and find an account (`Database.timer/5`), repeats that for them.
+  @every 300
 
   @impl true
   def entrypoints,
@@ -159,6 +159,8 @@ defmodule AIUsage do
 
     # A reading made now is new on its screen; one that couldn't be made changes nothing there.
     if Enum.any?(all, &(&1["at"] == now)), do: OneCore.Call.changed(call)
+    # Someone who asks and has an account is read again every five minutes from now on, by their timer.
+    if call.actor != nil and all != [], do: database.timer(call, "status", %{}, div(now, 1000) + @every, @every)
     problem = if all == [] and response, do: response[:problem]
 
     %{at: now, problem: problem, providers: Enum.map(all, &json(&1, now))}
