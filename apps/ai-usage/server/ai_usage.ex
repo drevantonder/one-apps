@@ -56,8 +56,7 @@ defmodule AIUsage do
     properties: %{
       used: @percent,
       left: @percent,
-      resets: %{type: ["string", "null"], description: "When, as a person reads it, like Sun at 11:59 PM"},
-      countdown: %{type: ["string", "null"], description: "When, from now, like in 1d 3h"},
+      resets_at: %{type: ["integer", "null"], description: "When it resets, in milliseconds since 1970"},
       pace: %{type: ["string", "null"], description: "In the provider's words: a deficit or a reserve against even use, what was expected by now, and whether it lasts"},
       will_last: %{type: ["boolean", "null"], description: "Whether the pace lasts until it resets"}
     }
@@ -97,7 +96,11 @@ defmodule AIUsage do
                   alarm: %{
                     type: ["object", "null"],
                     description: "Why it needs looking at: out now, or running out before it resets",
-                    properties: %{tone: %{type: "string", enum: ["danger", "warn"]}, text: %{type: "string"}}
+                    properties: %{
+                      tone: %{type: "string", enum: ["danger", "warn"]},
+                      text: %{type: "string"},
+                      resets_at: %{type: ["integer", "null"], description: "When an exhausted window resets, in milliseconds since 1970"}
+                    }
                   },
                   plan: %{type: ["string", "null"]},
                   machines: %{type: "array", items: %{type: "string"}, description: "Where it's signed in"},
@@ -116,7 +119,7 @@ defmodule AIUsage do
                         name: %{type: "string"},
                         used: @percent,
                         left: @percent,
-                        countdown: %{type: ["string", "null"], description: "When it resets, like in 2h 5m"}
+                        resets_at: %{type: ["integer", "null"], description: "When it resets, in milliseconds since 1970"}
                       }
                     }
                   },
@@ -456,50 +459,6 @@ defmodule AIUsage do
 
   defp fmt(n), do: to_string(n)
 
-  # A local time, as the server's clock has it.
-  defp local(ms), do: :calendar.system_time_to_local_time(ms, :millisecond)
-
-  defp clock(ms) do
-    {_, {h, m, _}} = local(ms)
-    "#{rem(h + 11, 12) + 1}:#{String.pad_leading("#{m}", 2, "0")} #{if h < 12, do: "AM", else: "PM"}"
-  end
-
-  defp weekday(ms), do: Enum.at(~w(Mon Tue Wed Thu Fri Sat Sun), :calendar.day_of_the_week(elem(local(ms), 0)) - 1)
-
-  defp month_day(ms) do
-    {{_, month, day}, _} = local(ms)
-    "#{Enum.at(~w(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec), month - 1)} #{day}"
-  end
-
-  defp resets(nil, _now), do: "reset unknown"
-
-  defp resets(at, now) do
-    d = at - now
-
-    cond do
-      d <= 0 -> "resetting now"
-      d < 2 * 3_600_000 -> if round(d / 60_000) <= 1, do: "in 1 min", else: "in #{round(d / 60_000)} min"
-      elem(local(at), 0) == elem(local(now), 0) -> "today at #{clock(at)}"
-      d < 7 * 86_400_000 -> "#{weekday(at)} at #{clock(at)}"
-      true -> "#{month_day(at)} at #{clock(at)}"
-    end
-  end
-
-  defp countdown(nil, _now), do: nil
-
-  defp countdown(at, now) do
-    m = max(0, round((at - now) / 60_000))
-    h = div(m, 60)
-
-    cond do
-      m < 1 -> "now"
-      m < 120 -> "in #{m} min"
-      h < 48 -> "in #{h}h #{rem(m, 60)}m"
-      div(h, 24) < 14 -> "in #{div(h, 24)}d #{rem(h, 24)}h"
-      true -> "on #{month_day(at)}"
-    end
-  end
-
   defp ago(at, now) do
     m = max(0, round((now - at) / 60_000))
 
@@ -512,15 +471,15 @@ defmodule AIUsage do
   end
 
   # Why a plan needs looking at: out now, or running out before it resets.
-  defp alarm(p, now) do
+  defp alarm(p) do
     windows = [
       {"Session", p["session_used"], p["session_resets"], p["pace"]["session"]},
       {"Weekly", p["weekly_used"], p["weekly_resets"], p["pace"]["weekly"]},
       {"Monthly", p["monthly_used"], p["monthly_resets"], nil}
     ]
 
-    Enum.find_value(windows, fn {_label, used, at, _pace} ->
-      used && used >= 100 && %{tone: "danger", text: "Out, resets #{resets(at, now)}"}
+    Enum.find_value(windows, fn {label, used, at, _pace} ->
+      used && used >= 100 && %{tone: "danger", text: "#{label} is out", resets_at: at}
     end) ||
       Enum.find_value(windows, fn {label, _used, _at, pace} ->
         if pace && pace["will_last"] == false do
@@ -532,12 +491,11 @@ defmodule AIUsage do
       end)
   end
 
-  defp meter(used, resets, pace, now) do
+  defp meter(used, resets, pace) do
     %{
       used: used,
       left: used && 100 - used,
-      resets: resets && resets(resets, now),
-      countdown: countdown(resets, now),
+      resets_at: resets,
       pace: pace && pace["summary"],
       will_last: pace && pace["will_last"]
     }
@@ -550,15 +508,15 @@ defmodule AIUsage do
       account: if(p["account"] != "", do: p["account"]),
       active: p["active"],
       disabled: p["disabled"],
-      alarm: alarm(p, now),
+      alarm: alarm(p),
       plan: p["plan"],
       machines: p["machines"],
       updated_ago: ago(p["at"], now),
       outdated: now - p["at"] > @fresh,
       note: p["note"],
-      session: meter(p["session_used"], p["session_resets"], p["pace"]["session"], now),
-      weekly: meter(p["weekly_used"], p["weekly_resets"], p["pace"]["weekly"], now),
-      monthly: if(p["monthly_used"] != nil, do: meter(p["monthly_used"], p["monthly_resets"], nil, now)),
+      session: meter(p["session_used"], p["session_resets"], p["pace"]["session"]),
+      weekly: meter(p["weekly_used"], p["weekly_resets"], p["pace"]["weekly"]),
+      monthly: if(p["monthly_used"] != nil, do: meter(p["monthly_used"], p["monthly_resets"], nil)),
       models:
         for(
           m <- p["models"],
@@ -566,7 +524,7 @@ defmodule AIUsage do
             name: m["name"],
             used: m["used"],
             left: m["used"] && 100 - m["used"],
-            countdown: countdown(m["resets_at"], now)
+            resets_at: m["resets_at"]
           }
         ),
       extra: p["extra"],

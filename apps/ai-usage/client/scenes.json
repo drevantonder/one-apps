@@ -4,16 +4,34 @@
       "ai-usage_status": {
         "providers": [
           { "id": "claude", "title": "Claude", "plan": "Max", "account": "Personal · sam@example.com", "machines": ["Sam's Mac"], "active": true, "updated_ago": "2m ago",
-            "session": { "used": 42, "countdown": "in 3h" }, "weekly": { "used": 71, "countdown": "in 2d", "will_last": false },
-            "models": [{ "name": "Opus", "used": 18, "countdown": "in 2d" }] },
+            "session": { "used": 42, "resets_at": 1767236400000 }, "weekly": { "used": 71, "resets_at": 1767398400000, "will_last": false },
+            "models": [{ "name": "Opus", "used": 18, "resets_at": 1767398400000 }] },
           { "id": "claude", "title": "Claude", "plan": "Max", "account": "Work · sam@work.example", "machines": ["work-pc"], "updated_ago": "1h ago", "outdated": true, "note": "Couldn't reach work-pc",
-            "session": { "used": 5, "countdown": "in 4h" }, "weekly": { "used": 30, "countdown": "in 5d" } },
+            "session": { "used": 5, "resets_at": 1767240000000 }, "weekly": { "used": 30, "resets_at": 1767657600000 } },
           { "id": "codex", "title": "Codex", "plan": "Pro", "machines": ["Sam's Mac"], "updated_ago": "5m ago",
-            "weekly": { "used": 100, "countdown": "in 1d" }, "extra": { "used": 12, "limit": 50 }, "alarm": { "text": "This week's limit is used up", "tone": "warn" } }
+            "weekly": { "used": 100, "resets_at": 1767312000000 }, "extra": { "used": 12, "limit": 50 }, "alarm": { "text": "This week's limit is used up", "tone": "warn" } }
         ]
       }
     }
   },
   "No sign-ins": { "answers": { "ai-usage_status": { "providers": [] } } },
-  "Can't read": { "answers": { "ai-usage_status": { "providers": [], "problem": "No device with Codex or Claude Code answered" } } }
+  "Can't read": { "answers": { "ai-usage_status": { "providers": [], "problem": "No device with Codex or Claude Code answered" } } },
+  "Out, on a device in Sydney": {
+    "timeZone": "Australia/Sydney",
+    "answers": { "ai-usage_status": { "providers": [
+      { "id": "claude", "title": "Claude", "plan": "Max", "account": "Personal · sam@example.com", "machines": ["Sam's Mac"], "active": true, "updated_ago": "2m ago",
+        "session": { "used": 42, "resets_at": 1767236400000 }, "weekly": { "used": 100, "resets_at": 1767661200000 },
+        "alarm": { "tone": "danger", "text": "Weekly is out", "resets_at": 1767661200000 } }
+    ] } },
+    "checks": { "Resets are said in the device's time zone": [{ "expect": { "text": "resets in 5d 1h" } }, { "expect": { "text": "Weekly is out, resets Tue at 12:00\u202fPM" } }] }
+  },
+  "Out, on a device in UTC": {
+    "timeZone": "UTC",
+    "answers": { "ai-usage_status": { "providers": [
+      { "id": "claude", "title": "Claude", "plan": "Max", "account": "Personal · sam@example.com", "machines": ["Sam's Mac"], "active": true, "updated_ago": "2m ago",
+        "session": { "used": 42, "resets_at": 1767236400000 }, "weekly": { "used": 100, "resets_at": 1767661200000 },
+        "alarm": { "tone": "danger", "text": "Weekly is out", "resets_at": 1767661200000 } }
+    ] } },
+    "checks": { "Resets are said in the device's time zone": [{ "expect": { "text": "resets in 5d 1h" } }, { "expect": { "text": "Weekly is out, resets Tue at 1:00\u202fAM" } }] }
+  }
 }

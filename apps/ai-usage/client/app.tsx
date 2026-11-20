@@ -1,7 +1,7 @@
 // Each AI plan, metered: a provider's mark and name, then each of its accounts with a meter for each window and
 // when it resets. Accounts fill the room: more columns where there's more of it.
-import { createMemo, Errored, For, Loading, refresh, Show } from "solid-js"
-import { Button, call, changed, Empty, Image, Problem, render, Screen, Skeleton, styles, Text, tokens, View } from "ui"
+import { createMemo, createSignal, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
+import { Button, call, changed, Empty, Image, Problem, render, Screen, Skeleton, styles, Text, tokens, View, visible } from "ui"
 import { sizes } from "./sizes.ts"
 import claude from "./claude.svg?inline"
 import codex from "./codex.svg?inline"
@@ -40,7 +40,7 @@ const look = styles({
 /** A window a plan is metered over: how much of it is used, when it resets, and whether the pace lasts to then. */
 interface Window {
   used?: number | null
-  countdown?: string
+  resets_at?: number | null
   will_last?: boolean
 }
 
@@ -61,7 +61,34 @@ interface Plan {
   monthly?: Window
   models?: (Window & { name: string })[]
   extra?: { used: number; limit: number }
-  alarm?: { text: string; tone?: string }
+  alarm?: { text: string; tone?: string; resets_at?: number | null }
+}
+
+// Times arrive as instants and are said here, in this device's own time zone and language, as its clock is.
+const clock = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
+const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short" })
+const date = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" })
+const [now, setNow] = createSignal(Date.now())
+
+/// When something resets, from now: "in 45 min", "in 2h 5m", "in 5d 1h", or its date past two weeks.
+function countdown(at: number) {
+  const minutes = Math.max(0, Math.round((at - now()) / 60_000))
+  const hours = Math.floor(minutes / 60)
+  if (minutes < 1) return "now"
+  if (minutes < 120) return `in ${minutes} min`
+  if (hours < 48) return `in ${hours}h ${minutes % 60}m`
+  if (hours < 14 * 24) return `in ${Math.floor(hours / 24)}d ${hours % 24}h`
+  return `on ${date.format(at)}`
+}
+
+/// The moment something resets, as a person says it: "today at 9:19 PM", "Thu at 5:59 AM", "Dec 10 at 9:28 PM".
+function when(at: number) {
+  const left = at - now()
+  if (left <= 0) return "now"
+  if (left < 2 * 3_600_000) return countdown(at)
+  if (new Date(at).toDateString() === new Date(now()).toDateString()) return `today at ${clock.format(at)}`
+  if (left < 7 * 86_400_000) return `${weekday.format(at)} at ${clock.format(at)}`
+  return `${date.format(at)} at ${clock.format(at)}`
 }
 
 // Each brand's own mark, as a `data:` address.
@@ -81,10 +108,10 @@ function Meter(props: { label: string; window?: Window }) {
             </View>
             <Text style={look.used}>{`${Math.round(window().used!)}%`}</Text>
           </View>
-          <Show when={window().countdown}>
+          <Show when={window().resets_at}>
             <View style={look.row}>
               <View style={look.under} />
-              <Text style={look.resets}>resets {window().countdown}</Text>
+              <Text style={look.resets}>resets {countdown(window().resets_at!)}</Text>
             </View>
           </Show>
         </View>
@@ -127,7 +154,7 @@ function Account(props: { plan: Plan; several: boolean }) {
       <Show when={note()}>
         <Text style={look.quiet}>{note()}</Text>
       </Show>
-      <Show when={!p().outdated && p().alarm}>{(alarm) => <Problem warn={alarm().tone === "warn"} heading={alarm().text} />}</Show>
+      <Show when={!p().outdated && p().alarm}>{(alarm) => <Problem warn={alarm().tone === "warn"} heading={alarm().resets_at ? `${alarm().text}, resets ${when(alarm().resets_at!)}` : alarm().text} />}</Show>
     </View>
   )
 }
@@ -169,7 +196,13 @@ function Plans(props: { usage: { providers: Plan[]; problem?: string } }) {
 
 function App() {
   const usage = createMemo(() => call("ai-usage_status").then(JSON.parse))
-  changed(() => refresh(usage))
+  changed(() => {
+    setNow(Date.now())
+    refresh(usage)
+  })
+  // The times are said from now, so they're said again each minute while they can be seen.
+  const every = setInterval(() => visible() && setNow(Date.now()), 60_000)
+  onCleanup(() => clearInterval(every))
   return (
     <Screen heading="AI Usage">
       <Errored fallback={(error, reset) => <Problem heading="Couldn't read your AI plans" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
