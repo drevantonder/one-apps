@@ -25,6 +25,7 @@ interface Account {
   ok: boolean
   state: "connecting" | "connected" | "disconnected" | "restarting" | "unreachable" | "unlinked" | "replaced"
   why: string
+  since?: number
 }
 
 /** Where linking a phone is, as `whatsapp_pairing` answers it (link.ex's `@pairing`): the QR code to scan and one to
@@ -38,6 +39,8 @@ interface Pairing {
 }
 
 const ask = <T,>(tool: string, inputs = {}): Promise<T> => call(`whatsapp_${tool}`, inputs).then(JSON.parse)
+// A time arrives as an instant and is said in this device's own time zone and language.
+const since = (at: number) => new Date(at).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
 const plain = (error: unknown) => (error as Error).message.replace(/^./, (c) => c.toUpperCase())
 
 /// Linking a phone, in the state it's in: its steps while it starts, the QR code to scan while it's pairing (which
@@ -157,7 +160,7 @@ function AccountView(props: { account: Account }) {
           <Status heading="Reconnecting…" />
         </Match>
         <Match when={props.account.state !== "connected"}>
-          <Problem warn heading="Not connected" text={`${props.account.why.replace(/^./, (c) => c.toUpperCase())}.`} />
+          <Problem warn heading="Not connected" text={`${props.account.why.replace(/^./, (c) => c.toUpperCase())}.${props.account.since ? ` Since ${since(props.account.since)}.` : ""}`} />
         </Match>
       </Switch>
       <Section heading="Linked On">

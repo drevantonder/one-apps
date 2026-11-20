@@ -46,7 +46,7 @@ defmodule WhatsApp do
       "which of your devices that run WhatsApp to link it on, by name, as whatsapp_devices lists them; default the first"
   }
   @limit %{type: "integer", description: "at most this many; default 30"}
-  @time %{type: "string", description: "When, in the network's time zone, like 3 Nov 2026 09:00"}
+  @time %{type: "integer", description: "When, in milliseconds since 1970"}
   @message %{
     type: "object",
     properties: %{
@@ -110,7 +110,8 @@ defmodule WhatsApp do
                   ok: %{type: "boolean", description: "Whether it's connected, or connecting by itself"},
                   state: %{type: "string", enum: @link_states, description: "Where its link is"},
                   device: %{type: "string", description: "Where it's linked"},
-                  why: %{type: "string", description: "Why it isn't connected"}
+                  why: %{type: "string", description: "Why it isn't connected"},
+                  since: %{type: "integer", description: "Since when it isn't, where that's known, in milliseconds since 1970"}
                 },
                 required: ["account", "ok", "state", "device"]
               }
@@ -139,6 +140,7 @@ defmodule WhatsApp do
                   connected: %{type: "boolean"},
                   state: %{type: "string", enum: @link_states, description: "Where its link is"},
                   why: %{type: ["string", "null"], description: "Why it isn't connected"},
+                  since: %{type: "integer", description: "Since when it isn't, where that's known, in milliseconds since 1970"},
                   messages: %{type: "integer", description: "How many messages are kept"},
                   chats: %{type: "integer", description: "In how many chats"}
                 },
@@ -352,12 +354,13 @@ defmodule WhatsApp do
     accounts =
       for link <- links do
         device = OneCore.Service.name(link["server"]) || "a device"
-        %{connected: connected, state: state, why: why} = how(link, live, device)
+        %{connected: connected, state: state, why: why} = standing = how(link, live, device)
 
         # On its way to connected by itself, it needs nothing of its person.
         ok = connected or state in ~w(connecting restarting disconnected)
         %{account: "+" <> link["account"], ok: ok, state: state, device: device}
         |> then(&if(why, do: Map.put(&1, :why, why), else: &1))
+        |> then(&if(standing[:since], do: Map.put(&1, :since, standing.since), else: &1))
       end
 
     %{accounts: accounts}
@@ -721,16 +724,16 @@ defmodule WhatsApp do
     do: %{
       connected: false,
       state: "unlinked",
-      why:
-        "WhatsApp unlinked it on #{day(at)}, from the phone or by itself, and what was kept is deleted: link it again"
+      since: at * 1000,
+      why: "WhatsApp unlinked it, from the phone or by itself, and what was kept is deleted: link it again"
     }
 
   defp how(%{"state" => "replaced", "at" => at}, _live, device),
     do: %{
       connected: false,
       state: "replaced",
-      why:
-        "Stopped on #{device} on #{day(at)}, when another copy of this link connected elsewhere: sign it out, and link it again"
+      since: at * 1000,
+      why: "Stopped on #{device}, when another copy of this link connected elsewhere: sign it out, and link it again"
     }
 
   defp how(link, live, device) do
@@ -872,7 +875,7 @@ defmodule WhatsApp do
   # A message as the tools give it: when, from whom (You for the user), and what.
   defp message(names, m) do
     from = if m["from_me"] == 1, do: "You", else: name(names, m["sender"], m["sender_name"])
-    %{time: long(m["time"]), from: from, text: m["text"]}
+    %{time: m["time"] * 1000, from: from, text: m["text"]}
   end
 
   defp page(inputs), do: {max(1, inputs["limit"] || 30), max(0, inputs["skip"] || 0)}
@@ -897,21 +900,6 @@ defmodule WhatsApp do
   defp item(account), do: "WhatsApp +#{account}"
   defp vault(call), do: OneCore.Call.app(call, "vault")
   defp now, do: System.os_time(:second)
-
-  # Times as the server's clock has them.
-  defp local(seconds), do: :calendar.system_time_to_local_time(seconds, :second)
-  @months ~w(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec)
-  defp two(n), do: String.pad_leading("#{n}", 2, "0")
-
-  defp long(seconds) do
-    {{y, mo, d}, {h, mi, _}} = local(seconds)
-    "#{d} #{Enum.at(@months, mo - 1)} #{y} #{two(h)}:#{two(mi)}"
-  end
-
-  defp day(seconds) do
-    {{_, mo, d}, {h, mi, _}} = local(seconds)
-    "#{d} #{Enum.at(@months, mo - 1)} #{two(h)}:#{two(mi)}"
-  end
 
   # A blob replaced whole, whatever was there.
   defp put(artifact, name, data) do
