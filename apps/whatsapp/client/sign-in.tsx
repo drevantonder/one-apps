@@ -15,7 +15,6 @@ const look = styles({
   form: { gap: tokens.grid[4], alignItems: "flex-start" },
   field: { alignSelf: "stretch" },
   // Sign Out is the account's last thing, centred under it.
-  out: { alignItems: "center", maxWidth: tokens.length.readable },
 })
 
 /** A linked account, as `whatsapp_accounts` answers it. */
@@ -168,9 +167,9 @@ function AccountView(props: { account: Account }) {
           <Row heading={props.account.device} />
         </List>
       </Section>
-      <View style={look.out}>
-        <Button variant="destructive" onPress={signOut}>Sign Out</Button>
-      </View>
+      <List>
+        <Row heading="Sign Out" destructive onPress={signOut} />
+      </List>
     </>
   )
 }

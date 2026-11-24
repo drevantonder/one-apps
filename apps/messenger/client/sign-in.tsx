@@ -2,14 +2,13 @@
 // Accounts, as sign_in's page, with its name after a `#`, it's that account; with none, it signs one in, which opens a window on
 // that device's screen, where you sign in yourself.
 import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
-import { Button, call, changed, confirm, Empty, Field, Input, leave, link, Problem, render, Screen, Section, Select, Spinner, Steps, styles, toast, tokens, View } from "ui"
+import { Button, call, changed, confirm, Empty, Field, Input, leave, link, List, Problem, render, Row, Screen, Section, Select, Spinner, Steps, styles, toast, tokens, View } from "ui"
 
 const look = styles({
   messenger: { gap: tokens.grid[6], maxWidth: tokens.length.readable },
   form: { gap: tokens.grid[4], alignItems: "flex-start" },
   field: { alignSelf: "stretch" },
   // Sign Out is the account's last thing, centred under it.
-  out: { alignItems: "center", maxWidth: tokens.length.readable },
 })
 
 /** A signed-in account, as `messenger_accounts` answers it. */
@@ -142,9 +141,9 @@ function AccountView(props: { account: Account; devices: string[] }) {
           <SigningIn account={props.account.account} device={props.devices[0]} />
         </Show>
       </Show>
-      <View style={look.out}>
-        <Button variant="destructive" onPress={signOut}>Sign Out</Button>
-      </View>
+      <List>
+        <Row heading="Sign Out" destructive onPress={signOut} />
+      </List>
     </>
   )
 }
