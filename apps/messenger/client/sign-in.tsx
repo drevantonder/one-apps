@@ -2,7 +2,7 @@
 // Accounts, as sign_in's page, with its name after a `#`, it's that account; with none, it signs one in, which opens a window on
 // that device's screen, where you sign in yourself.
 import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
-import { Button, call, changed, confirm, Empty, Field, Input, leave, link, Problem, render, Screen, Section, Select, Skeleton, Steps, styles, toast, tokens, View } from "ui"
+import { Button, call, changed, confirm, Empty, Field, Input, leave, link, Problem, render, Screen, Section, Select, Spinner, Steps, styles, toast, tokens, View } from "ui"
 
 const look = styles({
   messenger: { gap: tokens.grid[6], maxWidth: tokens.length.readable },
@@ -177,7 +177,7 @@ function Page() {
   return (
     <Screen heading={named() || "Messenger"} back onBack={leave}>
       <Errored fallback={(error, reset) => <Problem heading="Couldn't reach Messenger" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
-        <Loading fallback={<Skeleton rows={3} />}>
+        <Loading fallback={<Spinner delay />}>
           <Messenger state={state()} again={() => refresh(state)} />
         </Loading>
       </Errored>

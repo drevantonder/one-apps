@@ -20,7 +20,7 @@ defmodule ServerLoad do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def requires, do: %{"core" => ">= 0.32.107", "database" => "to keep whether each device is on its charger"}
+  def requires, do: %{"core" => ">= 0.34.593", "database" => "to keep whether each device is on its charger"}
 
   @impl true
   def entrypoints, do: [%{page: "client/index.html", runtime_version: 5}]

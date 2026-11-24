@@ -39,7 +39,7 @@ defmodule AIUsage do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def requires, do: %{"core" => ">= 0.22.18", "database" => "to keep your usage readings"}
+  def requires, do: %{"core" => ">= 0.34.593", "database" => "to keep your usage readings"}
 
   # Fresh readings every five minutes, so the pace has readings far enough apart to say when a window runs out: a
   # person's timer, set as they ask and find an account (`Database.timer/5`), repeats that for them.

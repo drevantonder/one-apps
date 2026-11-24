@@ -1,6 +1,6 @@
 // Stay Awake, on a Mac's page in Settings: a switch that keeps it online with its lid shut while it's plugged in.
 import { createMemo, Errored, Loading, refresh, Show } from "solid-js"
-import { call, changed, List, Problem, Row, Skeleton, Switch, toast } from "ui"
+import { call, changed, List, Problem, Row, Spinner, Switch, toast } from "ui"
 
 /** A Mac with Stay Awake, as `stay-awake_macs` answers it. */
 interface Mac {
@@ -24,7 +24,7 @@ export default function StayAwake(props: { server?: string }) {
   }
   return (
     <Errored fallback={(error) => <Problem heading="Can't ask the Mac" text={error() as Error} />}>
-      <Loading fallback={<Skeleton rows={1} />}>
+      <Loading fallback={<Spinner delay />}>
         <Show when={mac()}>
           {(mac) => (
             <List>

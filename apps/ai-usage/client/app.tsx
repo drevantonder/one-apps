@@ -1,7 +1,7 @@
 // Each AI plan, metered: a provider's mark and name, then each of its accounts with a meter for each window and
 // when it resets. Accounts fill the room: more columns where there's more of it.
 import { createMemo, createSignal, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
-import { Button, call, changed, Empty, Image, Problem, render, Screen, Skeleton, styles, Text, tokens, View, visible } from "ui"
+import { Button, call, changed, Empty, Image, Problem, render, Screen, Spinner, styles, Text, tokens, View, visible } from "ui"
 import { sizes } from "./sizes.ts"
 import claude from "./claude.svg?inline"
 import codex from "./codex.svg?inline"
@@ -206,7 +206,7 @@ function App() {
   return (
     <Screen heading="AI Usage">
       <Errored fallback={(error, reset) => <Problem heading="Couldn't read your AI plans" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
-        <Loading fallback={<Skeleton rows={4} />}>
+        <Loading fallback={<Spinner delay />}>
           <Plans usage={usage()} />
         </Loading>
       </Errored>

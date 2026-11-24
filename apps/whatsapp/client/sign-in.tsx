@@ -2,7 +2,7 @@
 // Accounts, as sign_in's page, with its number after a `#`, it's that account; with none, it links one: it shows the QR code to
 // scan on the phone, and the code to type there for a number.
 import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
-import { Button, call, changed, confirm, Empty, Field, Image, Input, leave, link, List, Problem, render, Row, Screen, Section, Select, Skeleton, Status, Steps, styles, Text, toast, tokens, View } from "ui"
+import { Button, call, changed, confirm, Empty, Field, Image, Input, leave, link, List, Problem, render, Row, Screen, Section, Select, Spinner, Status, Steps, styles, Text, toast, tokens, View } from "ui"
 import { own } from "./own.ts"
 
 const look = styles({
@@ -203,7 +203,7 @@ function Page() {
   return (
     <Screen heading={named() || "WhatsApp"} back onBack={leave}>
       <Errored fallback={(error, reset) => <Problem heading="Couldn't reach WhatsApp" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
-        <Loading fallback={<Skeleton rows={3} />}>
+        <Loading fallback={<Spinner delay />}>
           <WhatsApp state={state()} again={() => refresh(state)} />
         </Loading>
       </Errored>

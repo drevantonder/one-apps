@@ -1,7 +1,7 @@
 // AI Gateway, as its page in Settings draws it: which model each job uses, which a person can change, and where models
 // run, by machine or by hosted endpoint, with the endpoints' keys, said by name and never by value.
 import { createMemo, Errored, For, Loading, refresh, Show } from "solid-js"
-import { call, changed, Empty, List, Problem, Row, Section, Select, Skeleton, toast } from "ui"
+import { call, changed, Empty, List, Problem, Row, Section, Select, Spinner, toast } from "ui"
 
 /** A model a place has, as `ai-gateway_models` answers it. */
 interface Model {
@@ -72,7 +72,7 @@ function Jobs(props: { places: Place[]; jobs: Job[] }) {
 export default function Gateway() {
   return (
     <Errored fallback={(error) => <Problem heading="Can't show AI Gateway" text={error() as Error} />}>
-      <Loading fallback={<Skeleton rows={3} />}>
+      <Loading fallback={<Spinner delay />}>
         <Section heading="Which Model Does a Job">
           <Jobs places={state().places} jobs={state().jobs} />
         </Section>

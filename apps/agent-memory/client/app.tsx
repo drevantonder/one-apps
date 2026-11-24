@@ -2,7 +2,7 @@
 // newest first, so the latest is in sight. A summary opens into its two halves, down to the memories themselves.
 // People read; only agents write.
 import { createMemo, createSignal, Errored, For, Loading, refresh, Show } from "solid-js"
-import { Button, call, changed, Empty, Icon, Pressable, Problem, render, Screen, Skeleton, styles, Text, tokens, View } from "ui"
+import { Button, call, changed, Empty, Icon, Pressable, Problem, render, Screen, Spinner, styles, Text, tokens, View } from "ui"
 
 const look = styles({
   lines: { gap: tokens.grid[4], maxWidth: tokens.length.readable },
@@ -75,7 +75,7 @@ function App() {
   return (
     <Screen heading="Agent Memory">
       <Errored fallback={(error, reset) => <Problem heading="Couldn't load the memory" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
-        <Loading fallback={<Skeleton rows={3} />}>
+        <Loading fallback={<Spinner delay />}>
           <Show when={memory().memory.length} fallback={<Empty>Nothing remembered yet</Empty>}>
             <View style={look.lines}>
               <Lines lines={[...memory().memory].reverse()} />

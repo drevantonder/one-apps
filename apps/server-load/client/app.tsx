@@ -2,7 +2,7 @@
 // says whether it's on its charger, as a phone does. The devices fill the room: more columns where there's more of it.
 // Asked again every 5 seconds while it can be seen.
 import { createMemo, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
-import { Button, call, changed, type Element, Empty, List, Problem, render, Row, Screen, Skeleton, styles, Text, tokens, View, visible } from "ui"
+import { Button, call, changed, type Element, Empty, List, Problem, render, Row, Screen, Spinner, styles, Text, tokens, View, visible } from "ui"
 import { sizes } from "./sizes.ts"
 
 const look = styles({
@@ -181,7 +181,7 @@ function App() {
   return (
     <Screen heading="Device Activity">
       <Errored fallback={(error, reset) => <Problem heading="Couldn't measure your devices" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
-        <Loading fallback={<Skeleton rows={3} />}>
+        <Loading fallback={<Spinner delay />}>
           <Show when={devices().length || power().length} fallback={<Empty>No device is measured yet</Empty>}>
             <View style={look.devices}>
               <For each={devices()} keyed={(d) => d.server}>

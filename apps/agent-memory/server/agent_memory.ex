@@ -33,7 +33,7 @@ defmodule AgentMemory do
   def own, do: :installed
 
   @impl true
-  def requires, do: %{"core" => ">= 0.24.40", "database" => "to keep your memory"}
+  def requires, do: %{"core" => ">= 0.34.593", "database" => "to keep your memory"}
 
   @impl true
   def entrypoints, do: [%{page: "client/index.html", runtime_version: 4}]
