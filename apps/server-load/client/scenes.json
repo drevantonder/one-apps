@@ -11,7 +11,7 @@
       }
     }
   },
-  "Nothing measured": { "answers": { "server-load_now": { "devices": [] } } },
+  "Nothing measured": { "answers": { "server-load_now": { "devices": [], "power": [] } } },
   "A Windows device and one that isn't measured": {
     "answers": { "server-load_now": { "devices": [
       { "server": "a", "name": "surface", "os": "windows", "memory": { "used": 5138448384, "total": 8503050240 }, "cpu": [6, 3, 3, 9, 4], "gpu": [4, 4, 5, 4], "disk": { "used": 53782781952, "total": 254886772736 }, "containers": [] },
