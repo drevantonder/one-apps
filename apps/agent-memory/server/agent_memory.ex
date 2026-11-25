@@ -62,6 +62,8 @@ defmodule AgentMemory do
       %{
         name: "wake",
         read_only: true,
+        ui: "client/index.html",
+        runtime_version: 4,
         description:
           "Read your memory: the first call of every session. Recent memories word for word, older ones as summaries, oldest first, in parts that fit any harness: run each part until one says you are awake.",
         inputs: %{

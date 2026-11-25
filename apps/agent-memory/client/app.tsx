@@ -2,7 +2,7 @@
 // newest first, so the latest is in sight. A summary opens into its two halves, down to the memories themselves.
 // People read; only agents write.
 import { createMemo, createSignal, Errored, For, Loading, refresh, Show } from "solid-js"
-import { Button, call, changed, Empty, Icon, Pressable, Problem, render, Screen, Spinner, styles, Text, tokens, View } from "ui"
+import { Button, call, changed, Empty, Icon, Pressable, Problem, render, Screen, Spinner, styles, Text, tokens, toolInput, View } from "ui"
 
 const look = styles({
   lines: { gap: tokens.grid[4], maxWidth: tokens.length.readable },
@@ -70,7 +70,8 @@ function Lines(props: { lines: Memory[] }) {
 }
 
 function App() {
-  const memory = createMemo(() => ask<{ count: number; memory: Memory[] }>("wake", { format: "json" }))
+  // Its one screen is `wake`'s, whichever part an assistant read: every memory, as the screen shows it.
+  const memory = createMemo(() => (toolInput("agent-memory_wake"), ask<{ count: number; memory: Memory[] }>("wake", { format: "json" })))
   changed(() => refresh(memory))
   return (
     <Screen heading="Agent Memory">
