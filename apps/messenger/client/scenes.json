@@ -1,14 +1,14 @@
 {
   "Add Account": {
     "page": "client/sign-in.html",
-    "answers": { "messenger_accounts": { "accounts": [] }, "messenger_devices": { "devices": ["Sam's Mac", "work-pc"] } }
+    "answers": { "messenger_devices": { "devices": ["Sam's Mac", "work-pc"] } }
   },
   "Signed out": {
-    "page": "client/sign-in.html#Personal",
-    "answers": { "messenger_accounts": { "accounts": [{ "account": "Personal", "ok": false }] }, "messenger_devices": { "devices": ["Sam's Mac"] } }
+    "page": "client/sign-in.html#account&account=Personal",
+    "answers": { "messenger_account": { "account": { "account": "Personal", "ok": false } }, "messenger_devices": { "devices": ["Sam's Mac"] } }
   },
   "No browser yet": {
     "page": "client/sign-in.html",
-    "answers": { "messenger_accounts": { "accounts": [] }, "messenger_devices": { "devices": [] } }
+    "answers": { "messenger_devices": { "devices": [] } }
   }
 }

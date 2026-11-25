@@ -71,6 +71,34 @@ defmodule Messenger do
         }
       },
       %{
+        name: "account",
+        read_only: true,
+        ui: "client/sign-in.html",
+        path: "{account}",
+        runtime_version: 5,
+        description:
+          "One Messenger account, by its name as `accounts` lists it: whether it needs signing in again, and why. It's the Vault's screen of it, where it's signed out of; null once it's gone.",
+        inputs: %{
+          type: "object",
+          required: ["account"],
+          properties: %{account: %{type: "string", description: "the account's name"}}
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            account: %{
+              type: ["object", "null"],
+              properties: %{
+                account: %{type: "string"},
+                ok: %{type: "boolean", description: "False when it needs signing in again"},
+                why: %{type: "string", description: "Why it needs signing in again"}
+              }
+            }
+          },
+          required: ["account"]
+        }
+      },
+      %{
         name: "devices",
         read_only: true,
         description: "Your devices that run Messenger's browser, by name: where an account can be signed in.",
@@ -252,16 +280,10 @@ defmodule Messenger do
   end
 
   @impl true
-  def call("accounts", _inputs, call) do
-    accounts =
-      for a <- transaction(call, &query(&1, "select * from accounts order by rowid")) do
-        if a["why"],
-          do: %{account: a["name"], ok: false, why: a["why"]},
-          else: %{account: a["name"], ok: true}
-      end
+  def call("accounts", _inputs, call), do: %{accounts: accounts(call)}
 
-    %{accounts: accounts}
-  end
+  def call("account", %{"account" => account}, call),
+    do: %{account: Enum.find(accounts(call), &(&1.account == account))}
 
   def call("devices", _inputs, call),
     do: %{devices: Enum.map(OneCore.Service.servers(call, Browser), &OneCore.Service.name/1)}
@@ -314,6 +336,14 @@ defmodule Messenger do
     %{account: account}
   end
 
+  defp accounts(call) do
+    for a <- transaction(call, &query(&1, "select * from accounts order by rowid")) do
+      if a["why"],
+        do: %{account: a["name"], ok: false, why: a["why"]},
+        else: %{account: a["name"], ok: true}
+    end
+  end
+
   # Runs a command of the browser's on an account. One that Messenger signed out is kept as needing signing in, and
   # the call fails saying so.
   defp browse(call, inputs, command) do
@@ -339,7 +369,7 @@ defmodule Messenger do
         if newly != [] do
           OneCore.Call.app(call, "vault").state(call, item(account), :needs_action, "Messenger signed it out", %{
             label: "Sign In",
-            page: "client/sign-in.html##{account}"
+            page: "client/sign-in.html#account&#{URI.encode_query(%{account: account})}"
           })
 
           OneCore.Call.tool(call, "notifications", "send", %{
