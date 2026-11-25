@@ -2,9 +2,6 @@
   "Add Account": {
     "page": "client/sign-in.html",
     "answers": {
-      "whatsapp_accounts": {
-        "accounts": []
-      },
       "whatsapp_devices": {
         "devices": [
           "Sam's Mac",
@@ -28,19 +25,17 @@
     }
   },
   "Linked account": {
-    "page": "client/sign-in.html#+61400000000",
+    "page": "client/sign-in.html#account&account=%2B61400000000",
     "answers": {
-      "whatsapp_accounts": {
-        "accounts": [
-          {
-            "account": "+61400000000",
-            "device": "home-server",
-            "ok": true,
-            "state": "unlinked",
-            "since": 1767218400000,
-            "why": "unlinked on the phone"
-          }
-        ]
+      "whatsapp_account": {
+        "account": {
+          "account": "+61400000000",
+          "device": "home-server",
+          "ok": true,
+          "state": "unlinked",
+          "since": 1767218400000,
+          "why": "unlinked on the phone"
+        }
       },
       "whatsapp_devices": {
         "devices": [

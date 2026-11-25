@@ -121,6 +121,37 @@ defmodule WhatsApp do
         }
       },
       %{
+        name: "account",
+        read_only: true,
+        ui: "client/sign-in.html",
+        path: "{account}",
+        runtime_version: 5,
+        description:
+          "One WhatsApp account, by its number as `accounts` lists it: where it's linked and why it isn't connected, when it isn't. It's the Vault's screen of it, where it's signed out of; null once it's gone.",
+        inputs: %{
+          type: "object",
+          required: ["account"],
+          properties: %{account: %{type: "string", description: "Its number, +61..."}}
+        },
+        outputs: %{
+          type: "object",
+          properties: %{
+            account: %{
+              type: ["object", "null"],
+              properties: %{
+                account: %{type: "string", description: "Its number, +61..."},
+                ok: %{type: "boolean", description: "Whether it's connected, or connecting by itself"},
+                state: %{type: "string", enum: @link_states, description: "Where its link is"},
+                device: %{type: "string", description: "Where it's linked"},
+                why: %{type: "string", description: "Why it isn't connected"},
+                since: %{type: "integer", description: "Since when it isn't, where that's known, in milliseconds since 1970"}
+              }
+            }
+          },
+          required: ["account"]
+        }
+      },
+      %{
         name: "status",
         read_only: true,
         description:
@@ -347,24 +378,10 @@ defmodule WhatsApp do
   end
 
   @impl true
-  def call("accounts", _inputs, call) do
-    links = transaction(call, &query(&1, "select * from links order by rowid"))
-    live = live(call, links)
+  def call("accounts", _inputs, call), do: %{accounts: accounts(call)}
 
-    accounts =
-      for link <- links do
-        device = OneCore.Service.name(link["server"]) || "a device"
-        %{connected: connected, state: state, why: why} = standing = how(link, live, device)
-
-        # On its way to connected by itself, it needs nothing of its person.
-        ok = connected or state in ~w(connecting restarting disconnected)
-        %{account: "+" <> link["account"], ok: ok, state: state, device: device}
-        |> then(&if(why, do: Map.put(&1, :why, why), else: &1))
-        |> then(&if(standing[:since], do: Map.put(&1, :since, standing.since), else: &1))
-      end
-
-    %{accounts: accounts}
-  end
+  def call("account", %{"account" => account}, call),
+    do: %{account: Enum.find(accounts(call), &(&1.account == account))}
 
   def call("status", _inputs, call) do
     {links, counts} =
@@ -550,6 +567,23 @@ defmodule WhatsApp do
     %{account: "+" <> link["account"]}
   end
 
+  defp accounts(call) do
+    links = transaction(call, &query(&1, "select * from links order by rowid"))
+    live = live(call, links)
+
+    for link <- links do
+      device = OneCore.Service.name(link["server"]) || "a device"
+      %{connected: connected, state: state, why: why} = standing = how(link, live, device)
+
+      # On its way to connected by itself, it needs nothing of its person.
+      ok = connected or state in ~w(connecting restarting disconnected)
+
+      %{account: "+" <> link["account"], ok: ok, state: state, device: device}
+      |> then(&if(why, do: Map.put(&1, :why, why), else: &1))
+      |> then(&if(standing[:since], do: Map.put(&1, :since, standing.since), else: &1))
+    end
+  end
+
   @doc false
   # Something about linking changed: every app watching is told. For `WhatsApp.Link`.
   def changed(call), do: OneCore.Call.changed(call)
@@ -638,7 +672,7 @@ defmodule WhatsApp do
   def ended(call, account, how) do
     if how == "unlinked" do
       OneCore.Artifact.remove(call.own, "sessions/#{account}")
-      vault(call).state(call, item(account), :needs_action, "Unlinked on your phone", %{label: "Sign In", page: "client/sign-in.html#+#{account}"})
+      vault(call).state(call, item(account), :needs_action, "Unlinked on your phone", %{label: "Sign In", page: "client/sign-in.html#account&#{URI.encode_query(%{account: "+" <> account})}"})
 
       OneCore.Call.tool(call, "notifications", "send", %{
         "title" => "WhatsApp +#{account} was unlinked",

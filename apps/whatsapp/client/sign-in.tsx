@@ -1,8 +1,8 @@
-// WhatsApp: each account is a phone linked to one of your devices, as WhatsApp Desktop is linked. Opened from
-// Accounts, as sign_in's page, with its number after a `#`, it's that account; with none, it links one: it shows the QR code to
-// scan on the phone, and the code to type there for a number.
+// WhatsApp: each account is a phone linked to one of your devices, as WhatsApp Desktop is linked. Its screens are
+// `whatsapp_sign_in`, whose form (its arguments filled in: the device, the number) links one: it shows the QR code to
+// scan on the phone, and the code to type there for a number, and `whatsapp_account { account }`, which Accounts opens.
 import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
-import { Button, call, changed, confirm, Empty, Field, Image, Input, leave, link, List, Problem, render, Row, Screen, Section, Select, Spinner, Status, Steps, styles, Text, toast, tokens, View } from "ui"
+import { Button, call, changed, confirm, Empty, Field, Image, Input, leave, List, Problem, render, Row, Screen, Section, Select, Spinner, Status, Steps, styles, Text, toast, tokens, toolInput, View } from "ui"
 import { own } from "./own.ts"
 
 const look = styles({
@@ -17,7 +17,7 @@ const look = styles({
   // Sign Out is the account's last thing, centred under it.
 })
 
-/** A linked account, as `whatsapp_accounts` answers it. */
+/** A linked account, as `whatsapp_account` answers it. */
 interface Account {
   account: string
   device: string
@@ -103,8 +103,10 @@ function Linking(props: { device: string; phone: string; again: () => void }) {
 function Link(props: { devices: string[]; again: () => void }) {
   const devices = props.devices.map((d) => ({ value: d, label: d }))
   const [linking, setLinking] = createSignal<{ device: string; phone: string }>()
-  const [device, setDevice] = createSignal(props.devices[0])
-  const [phone, setPhone] = createSignal("")
+  // Filled in from the arguments it was opened with, as a `mailto:` link fills an email: nothing links until it's pressed.
+  const given = toolInput("whatsapp_sign_in").arguments
+  const [device, setDevice] = createSignal(props.devices.find((d) => d === given.device) ?? props.devices[0])
+  const [phone, setPhone] = createSignal(typeof given.phone === "string" ? given.phone : "")
   const start = () => setLinking({ device: device(), phone: phone().trim() })
   return (
     <Show when={!linking()} fallback={<Linking {...linking()!} again={props.again} />}>
@@ -174,13 +176,15 @@ function AccountView(props: { account: Account }) {
   )
 }
 
-/// The account after the page's `#`, if it was opened for one; else linking another.
-const named = () => decodeURIComponent(link() ?? "")
+/// The account the screen is of, if it's `whatsapp_account`'s; else linking another.
+const named = () => {
+  const { name, arguments: inputs } = toolInput("whatsapp_sign_in")
+  return name === "whatsapp_account" ? String(inputs.account ?? "") : ""
+}
 
-function WhatsApp(props: { state: { accounts: Account[]; devices: string[] }; again: () => void }) {
-  const account = () => props.state.accounts.find((a) => a.account === named())
+function WhatsApp(props: { state: { account?: Account | null; devices: string[] }; again: () => void }) {
   return (
-    <Show when={!named()} fallback={<Show when={account()} fallback={<Empty>This account isn't linked any more.</Empty>}><AccountView account={account()!} /></Show>}>
+    <Show when={!named()} fallback={<Show when={props.state.account} fallback={<Empty>This account isn't linked any more.</Empty>}>{(account) => <AccountView account={account()} />}</Show>}>
       <Show
         when={props.state.devices.length}
         fallback={<Problem warn heading="WhatsApp isn't on any of your devices yet" text="Ask your agent to install it on a computer of yours that stays on." />}
@@ -195,8 +199,8 @@ function WhatsApp(props: { state: { accounts: Account[]; devices: string[] }; ag
 
 function Page() {
   const state = createMemo(async () => {
-    const [{ accounts }, { devices }] = await Promise.all([ask<{ accounts: Account[] }>("accounts"), ask<{ devices: string[] }>("devices")])
-    return { accounts, devices }
+    const [{ account }, { devices }] = await Promise.all([named() ? ask<{ account: Account | null }>("account", { account: named() }) : { account: undefined }, ask<{ devices: string[] }>("devices")])
+    return { account, devices }
   })
   changed(() => refresh(state))
   return (
