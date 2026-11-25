@@ -40,7 +40,6 @@ defmodule AiGateway do
   def hook("settings.sections", _about, _call), do: [%{in: "app", component: "gateway"}]
 
   @impl true
-  @impl true
   def tools do
     model = %{
       type: "string",
