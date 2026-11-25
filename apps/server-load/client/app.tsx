@@ -2,7 +2,7 @@
 // says whether it's on its charger, as a phone does. The devices fill the room: more columns where there's more of it.
 // Asked again every 5 seconds while it can be seen.
 import { createMemo, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
-import { Button, call, changed, type Element, Empty, List, Problem, render, Row, Screen, Spinner, styles, Text, tokens, View, visible } from "ui"
+import { Button, call, changed, type Element, Empty, List, Problem, render, Row, Screen, Spinner, styles, Text, tokens, toolInput, View, visible } from "ui"
 import { sizes } from "./sizes.ts"
 
 const look = styles({
@@ -171,7 +171,7 @@ function PowerView(props: { power: Power }) {
 }
 
 function App() {
-  const now = createMemo(() => call("server-load_now").then((text): { devices: Device[]; power: Power[] } => JSON.parse(text)))
+  const now = createMemo(() => call("server-load_now", toolInput("server-load_now").arguments).then((text): { devices: Device[]; power: Power[] } => JSON.parse(text)))
   const devices = () => now().devices
   const power = () => now().power
   changed(() => refresh(now))

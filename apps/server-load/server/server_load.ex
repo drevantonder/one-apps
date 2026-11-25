@@ -34,6 +34,8 @@ defmodule ServerLoad do
       %{
         name: "now",
         read_only: true,
+        ui: "client/index.html",
+        runtime_version: 5,
         description:
           "Every device that's measured, on or not, and how busy each is now: its memory, CPU, GPU and disk space, and the containers it hosts; and whether each device that says so, as a phone does, is on its charger, and since when. Use it to pick a device or server with room for a desktop, a model or a build, or to know whether someone's phone is charging.",
         inputs: %{
