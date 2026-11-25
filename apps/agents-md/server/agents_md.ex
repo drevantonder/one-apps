@@ -37,7 +37,7 @@ defmodule AgentsMd do
         name: "get",
         read_only: true,
         description:
-          "The AGENTS.md every agent tool on every device gets: the instructions Claude Code reads as CLAUDE.md, and Codex, OpenCode and Amp as AGENTS.md. Read it before agents-md_set, which replaces all of it.",
+          "The AGENTS.md every agent tool on every device gets: written to ~/.agents/AGENTS.md and symlinked for Claude Code (CLAUDE.md), Codex, OpenCode, Amp, Antigravity and fx. Read it before agents-md_set, which replaces all of it.",
         inputs: %{type: "object", properties: %{}},
         outputs: %{
           type: "object",

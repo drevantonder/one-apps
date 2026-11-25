@@ -8,11 +8,12 @@ metadata:
   category: AI
 ---
 
-`get` and `set` read and replace the AGENTS.md every agent tool on every device gets (Claude Code as its
-CLAUDE.md, Codex, Amp, OpenCode). Skills live in every agent tool's skills folder: `skills` lists them, `skill`
-reads one, `skill_set` adds or replaces one (all its files), `skill_remove` removes one. `history` lists
-AGENTS.md's revisions (or a skill's), and `restore` brings an old one back. Check with the person before `set`,
-`skill_remove` and `restore`, which change every agent's instructions at once.
+`get` and `set` read and replace the AGENTS.md every agent tool on every device gets (written to
+`~/.agents/AGENTS.md` and symlinked for Claude Code, Codex, Amp, OpenCode, Antigravity and fx). Skills live in every
+agent tool's skills folder: `skills` lists them, `skill` reads one, `skill_set` adds or replaces one (all its files),
+`skill_remove` removes one. `history` lists AGENTS.md's revisions (or a skill's), and `restore` brings an old one
+back. Check with the person before `set`, `skill_remove` and `restore`, which change every agent's instructions at
+once.
 
 A device gets them once AGENTS.md's service is installed there: `install_service --app agents-md --service
 AgentsMd.Writer --server <key>`. It writes them as it starts, when they change, and every minute, into the home
