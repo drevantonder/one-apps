@@ -68,6 +68,8 @@ defmodule AIUsage do
       %{
         name: "status",
         read_only: true,
+        ui: "client/index.html",
+        runtime_version: 5,
         description:
           "Every AI plan's limits (or one provider's), each Claude account apart: what's left, the pace, and whether it lasts to reset, in the providers' own words, plus which pool to spend. Fresh when older than 5 minutes, else the last read with its age.",
         inputs: %{
