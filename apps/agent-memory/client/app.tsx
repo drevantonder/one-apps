@@ -1,7 +1,7 @@
 // What agents remember, as they read it when they wake: recent memories word for word, older ones as summaries,
 // newest first, so the latest is in sight. A summary opens into its two halves, down to the memories themselves.
 // People read; only agents write.
-import { createMemo, createSignal, Errored, For, Loading, refresh, Show } from "solid-js"
+import { createProjection, createSignal, Errored, For, Loading, refresh, Show } from "solid-js"
 import { Button, call, changed, Empty, Icon, Pressable, Problem, render, Screen, Spinner, styles, Text, tokens, toolInput, View } from "ui"
 
 const look = styles({
@@ -71,15 +71,15 @@ function Lines(props: { lines: Memory[] }) {
 
 function App() {
   // Its one screen is `wake`'s, whichever part an assistant read: every memory, as the screen shows it.
-  const memory = createMemo(() => (toolInput("agent-memory_wake"), ask<{ count: number; memory: Memory[] }>("wake", { format: "json" })))
+  const memory = createProjection(() => (toolInput("agent-memory_wake"), ask<{ count: number; memory: Memory[] }>("wake", { format: "json" })))
   changed(() => refresh(memory))
   return (
     <Screen heading="Agent Memory">
       <Errored fallback={(error, reset) => <Problem heading="Couldn't load the memory" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
         <Loading fallback={<Spinner delay />}>
-          <Show when={memory().memory.length} fallback={<Empty>Nothing remembered yet</Empty>}>
+          <Show when={memory.memory.length} fallback={<Empty>Nothing remembered yet</Empty>}>
             <View style={look.lines}>
-              <Lines lines={[...memory().memory].reverse()} />
+              <Lines lines={[...memory.memory].reverse()} />
             </View>
           </Show>
         </Loading>

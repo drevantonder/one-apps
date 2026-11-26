@@ -1,5 +1,5 @@
 // Stay Awake, on a Mac's page in Settings: a switch that keeps it online with its lid shut while it's plugged in.
-import { createMemo, Errored, Loading, refresh, Show } from "solid-js"
+import { createProjection, Errored, Loading, refresh, Show } from "solid-js"
 import { call, changed, List, Problem, Row, Spinner, Switch, toast } from "ui"
 
 /** A Mac with Stay Awake, as `stay-awake_macs` answers it. */
@@ -12,15 +12,16 @@ interface Mac {
 }
 
 export default function StayAwake(props: { server?: string }) {
-  const mac = createMemo(() => call("stay-awake_macs").then((text) => (JSON.parse(text).macs as Mac[]).find((mac) => mac.server === props.server)))
-  changed(() => refresh(mac))
+  const answer = createProjection(() => call("stay-awake_macs").then((text): { mac?: Mac } => ({ mac: (JSON.parse(text).macs as Mac[]).find((mac) => mac.server === props.server) })))
+  const mac = () => answer.mac
+  changed(() => refresh(answer))
   const set = async (on: boolean) => {
     try {
       await call("stay-awake_set", { device: mac()!.name, on })
     } catch (error) {
       toast(error as Error)
     }
-    refresh(mac)
+    refresh(answer)
   }
   return (
     <Errored fallback={(error) => <Problem heading="Can't ask the Mac" text={error() as Error} />}>

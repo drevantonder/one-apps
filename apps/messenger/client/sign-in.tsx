@@ -1,7 +1,7 @@
 // Messenger: each account is a sign-in to messenger.com, held by a browser on one of your devices. Its screens are
 // `messenger_sign_in`, whose form (its arguments filled in: the account's name, the device) signs one in by opening a
 // window on that device's screen, where you sign in yourself, and `messenger_account { account }`, which Accounts opens.
-import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
+import { createProjection, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
 import { Button, call, changed, confirm, Empty, Field, Input, leave, List, Problem, render, Row, Screen, Section, Select, Spinner, Steps, styles, toast, tokens, toolInput, View } from "ui"
 
 const look = styles({
@@ -172,7 +172,7 @@ function Messenger(props: { state: { account?: Account | null; devices: string[]
 }
 
 function Page() {
-  const state = createMemo(async () => {
+  const state = createProjection(async () => {
     const [{ account }, { devices }] = await Promise.all([named() ? ask<{ account: Account | null }>("account", { account: named() }) : { account: undefined }, ask<{ devices: string[] }>("devices")])
     return { account, devices }
   })
@@ -181,7 +181,7 @@ function Page() {
     <Screen heading={named() || "Messenger"} back onBack={leave}>
       <Errored fallback={(error, reset) => <Problem heading="Couldn't reach Messenger" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
         <Loading fallback={<Spinner delay />}>
-          <Messenger state={state()} />
+          <Messenger state={state} />
         </Loading>
       </Errored>
     </Screen>

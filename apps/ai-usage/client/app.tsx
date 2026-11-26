@@ -1,6 +1,6 @@
 // Each AI plan, metered: a provider's mark and name, then each of its accounts with a meter for each window and
 // when it resets. Accounts fill the room: more columns where there's more of it.
-import { createMemo, createSignal, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
+import { createProjection, createSignal, Errored, For, Loading, onCleanup, refresh, Show } from "solid-js"
 import { Button, call, changed, Empty, Image, Problem, render, Screen, Spinner, styles, Text, tokens, toolInput, View, visible } from "ui"
 import { sizes } from "./sizes.ts"
 import claude from "./claude.svg?inline"
@@ -195,7 +195,7 @@ function Plans(props: { usage: { providers: Plan[]; problem?: string } }) {
 }
 
 function App() {
-  const usage = createMemo(() => call("ai-usage_status", toolInput("ai-usage_status").arguments).then(JSON.parse))
+  const usage = createProjection(() => call("ai-usage_status", toolInput("ai-usage_status").arguments).then(JSON.parse))
   changed(() => {
     setNow(Date.now())
     refresh(usage)
@@ -207,7 +207,7 @@ function App() {
     <Screen heading="AI Usage">
       <Errored fallback={(error, reset) => <Problem heading="Couldn't read your AI plans" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
         <Loading fallback={<Spinner delay />}>
-          <Plans usage={usage()} />
+          <Plans usage={usage} />
         </Loading>
       </Errored>
     </Screen>

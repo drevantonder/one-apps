@@ -1,7 +1,7 @@
 // WhatsApp: each account is a phone linked to one of your devices, as WhatsApp Desktop is linked. Its screens are
 // `whatsapp_sign_in`, whose form (its arguments filled in: the device, the number) links one: it shows the QR code to
 // scan on the phone, and the code to type there for a number, and `whatsapp_account { account }`, which Accounts opens.
-import { createMemo, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
+import { createProjection, createSignal, Errored, Loading, Match, onCleanup, refresh, Show, Switch } from "solid-js"
 import { Button, call, changed, confirm, Empty, Field, Image, Input, leave, List, Problem, render, Row, Screen, Section, Select, Spinner, Status, Steps, styles, Text, toast, tokens, toolInput, View } from "ui"
 import { own } from "./own.ts"
 
@@ -198,7 +198,7 @@ function WhatsApp(props: { state: { account?: Account | null; devices: string[] 
 }
 
 function Page() {
-  const state = createMemo(async () => {
+  const state = createProjection(async () => {
     const [{ account }, { devices }] = await Promise.all([named() ? ask<{ account: Account | null }>("account", { account: named() }) : { account: undefined }, ask<{ devices: string[] }>("devices")])
     return { account, devices }
   })
@@ -207,7 +207,7 @@ function Page() {
     <Screen heading={named() || "WhatsApp"} back onBack={leave}>
       <Errored fallback={(error, reset) => <Problem heading="Couldn't reach WhatsApp" text={error() as Error} action={<Button variant="outline" onPress={reset}>Try Again</Button>} />}>
         <Loading fallback={<Spinner delay />}>
-          <WhatsApp state={state()} again={() => refresh(state)} />
+          <WhatsApp state={state} again={() => refresh(state)} />
         </Loading>
       </Errored>
     </Screen>

@@ -1,6 +1,6 @@
 // AI Gateway, as its page in Settings draws it: which model each job uses, which a person can change, and where models
 // run, by machine or by hosted endpoint, with the endpoints' keys, said by name and never by value.
-import { createMemo, Errored, For, Loading, refresh, Show } from "solid-js"
+import { createProjection, Errored, Loading, refresh, Show } from "solid-js"
 import { call, changed, Empty, List, Problem, Row, Section, Select, Spinner, toast } from "ui"
 
 /** A model a place has, as `ai-gateway_models` answers it. */
@@ -30,7 +30,7 @@ interface Job {
 const JOBS = ["chat", "vision"]
 const title = (job: string) => job.replace(/(^|-)([a-z])/g, (_, dash, letter) => `${dash ? " " : ""}${letter.toUpperCase()}`)
 
-const state = createMemo(() => call("ai-gateway_models").then((text): { places: Place[]; jobs: Job[] } => JSON.parse(text)))
+const state = createProjection(() => call("ai-gateway_models").then((text): { places: Place[]; jobs: Job[] } => JSON.parse(text)))
 changed(() => refresh(state))
 
 async function choose(job: string, model: string) {
@@ -51,20 +51,18 @@ function Jobs(props: { places: Place[]; jobs: Job[] }) {
   const models = () => props.places.flatMap((place) => place.models.map((model) => ({ value: model.id, label: place.kind === "hosted" ? model.id : `${model.name} on ${place.name}` })))
   const items = (job?: Job) => [{ value: "", label: "Automatic" }, ...models(), ...(job?.models ?? []).filter((id) => !models().some((model) => model.value === id)).map((id) => ({ value: id, label: id }))]
   return (
-    <List>
-      <For each={named()}>
-        {(name) => {
-          const job = () => props.jobs.find((one) => one.job === name)
-          const rest = () => job()?.models.slice(1) ?? []
-          return (
-            <Row
-              heading={title(name)}
-              text={job() ? [rest().length ? `Then ${rest().join(", ")}` : "", job()!.whose === "everyone's" ? "Set for everyone" : ""].filter(Boolean).join(" · ") || undefined : "A model on your machines answers"}
-              end={<Select.Root aria-label={title(name)} items={items(job())} value={job()?.models[0] ?? ""} onValueChange={(model) => choose(name, model)} />}
-            />
-          )
-        }}
-      </For>
+    <List each={named()} keyed={(name) => name}>
+      {(name) => {
+        const job = () => props.jobs.find((one) => one.job === name())
+        const rest = () => job()?.models.slice(1) ?? []
+        return (
+          <Row
+            heading={title(name())}
+            text={job() ? [rest().length ? `Then ${rest().join(", ")}` : "", job()!.whose === "everyone's" ? "Set for everyone" : ""].filter(Boolean).join(" · ") || undefined : "A model on your machines answers"}
+            end={<Select.Root aria-label={title(name())} items={items(job())} value={job()?.models[0] ?? ""} onValueChange={(model) => choose(name(), model)} />}
+          />
+        )
+      }}
     </List>
   )
 }
@@ -74,11 +72,11 @@ export default function Gateway() {
     <Errored fallback={(error) => <Problem heading="Can't show AI Gateway" text={error() as Error} />}>
       <Loading fallback={<Spinner delay />}>
         <Section heading="Which Model Does a Job">
-          <Jobs places={state().places} jobs={state().jobs} />
+          <Jobs places={state.places} jobs={state.jobs} />
         </Section>
         <Section heading="Where Models Run, and Keys">
-          <Show when={state().places.length} fallback={<Empty>No model yet: a machine running Ollama, or an AI key from the Vault.</Empty>}>
-            <List each={state().places} keyed={(place) => `${place.kind} ${place.name}`}>
+          <Show when={state.places.length} fallback={<Empty>No model yet: a machine running Ollama, or an AI key from the Vault.</Empty>}>
+            <List each={state.places} keyed={(place) => `${place.kind} ${place.name}`}>
               {(place) => <Row heading={place().name} text={about(place())} />}
             </List>
           </Show>
