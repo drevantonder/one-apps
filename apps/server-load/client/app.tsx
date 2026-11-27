@@ -36,6 +36,7 @@ interface Device {
   server: string
   name: string
   os: string
+  at?: number
   problem?: string
   seen?: number
   memory?: Space
@@ -66,6 +67,19 @@ function seen(at: number) {
   if (minutes > -60) return `Seen ${ago.format(Math.min(minutes, -1), "minute")}`
   if (minutes > -48 * 60) return `Seen ${ago.format(Math.round(minutes / 60), "hour")}`
   return `Seen ${ago.format(Math.round(minutes / (24 * 60)), "day")}`
+}
+
+/// How old a kept reading is once it's stale (10 s or older): "12 s ago", "2 m ago". Fresh readings show nothing extra.
+function readingAge(at?: number) {
+  if (at == null) return null
+  const seconds = Math.floor((Date.now() - at) / 1000)
+  if (seconds < 10) return null
+  if (seconds < 60) return `${seconds} s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes} m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 48) return `${hours} h ago`
+  return `${Math.floor(hours / 24)} d ago`
 }
 
 const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
@@ -116,7 +130,10 @@ function DeviceView(props: { device: Device }) {
           {d().name}
         </Text>
         <Show when={!d().problem} fallback={<Show when={d().seen}>{(at) => <Text style={look.quiet}>{seen(at())}</Text>}</Show>}>
-          <Text style={look.quiet}>Online · {OS[d().os] ?? d().os}</Text>
+          <Text style={look.quiet}>
+            Online · {OS[d().os] ?? d().os}
+            <Show when={readingAge(d().at)}>{(when) => ` · ${when()}`}</Show>
+          </Text>
         </Show>
       </View>
       <Show when={d().problem && !d().seen}>

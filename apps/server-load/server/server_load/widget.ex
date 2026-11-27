@@ -76,7 +76,10 @@ defmodule ServerLoad.Widget do
   end
 
   defp row(device, details) do
-    about = %{part: "text", text: @systems[device["os"]] || device["os"] || "", size: "xs", tone: "muted", lines: 1}
+    os = @systems[device["os"]] || device["os"] || ""
+    stale = reading_age(device["at"])
+    subtitle = if stale && os != "", do: "#{os} · #{stale}", else: stale || os
+    about = %{part: "text", text: subtitle, size: "xs", tone: "muted", lines: 1}
 
     stats = [
       cell(@columns.ram, ring(device["memory"], @columns.ring)),
@@ -195,4 +198,19 @@ defmodule ServerLoad.Widget do
 
     "Seen #{count} #{unit}#{if count == 1, do: "", else: "s"} ago"
   end
+
+  # How old a kept reading is when it's stale (10 s or older): "12 s ago", "2 m ago". Fresh ones show nothing extra.
+  defp reading_age(at) when is_integer(at) do
+    seconds = div(System.os_time(:millisecond) - at, 1000)
+
+    cond do
+      seconds < 10 -> nil
+      seconds < 60 -> "#{seconds} s ago"
+      seconds < 3600 -> "#{div(seconds, 60)} m ago"
+      seconds < 48 * 3600 -> "#{div(seconds, 3600)} h ago"
+      true -> "#{div(seconds, 86_400)} d ago"
+    end
+  end
+
+  defp reading_age(_), do: nil
 end

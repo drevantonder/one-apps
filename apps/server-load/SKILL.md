@@ -8,9 +8,10 @@ metadata:
   category: Devices
 ---
 
-Server Load says how busy each device is; people see it as the app Device Activity and its widget. `now` lists
-every device that's measured, on or not, with its memory (as Activity Monitor counts it on a Mac), CPU, GPU and
-disk, its CPU and GPU over the last two minutes, and the containers it hosts. Use it before giving a device heavy
+Server Load says how busy each device is; people see it as the app Device Activity and its widget. `now` answers
+at once with each device's last kept reading (with its timestamp `at`) and refreshes stale meters in the background,
+listing every device that's measured, on or not, with its memory (as Activity Monitor counts it on a Mac), CPU, GPU
+and disk, its CPU and GPU over the last two minutes, and the containers it hosts. Use it before giving a device heavy
 work, to pick the one with most to spare. A device that's off says when it was last seen. `now` also says whether each device that tells it, as an iPhone
 does by a Shortcuts automation, is on its charger, and since when; a device says so with `power`.
 

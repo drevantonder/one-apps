@@ -18,5 +18,18 @@
       { "server": "b", "name": "old-nas", "problem": "Not measured: its meter isn't running on it.", "cpu": [], "gpu": [], "containers": [] }
     ] } },
     "checks": { "A device with no meter says so": [{ "expect": { "text": "Not measured: its meter isn't running on it." } }, { "expect": { "text": "Windows" } }] }
+  },
+  "Stale and measuring": {
+    "answers": {
+      "server-load_now": {
+        "devices": [
+          { "server": "a", "name": "Sam's Mac", "os": "macos", "at": 1767225588000, "memory": { "used": 12884901888, "total": 17179869184 }, "cpu": [12, 18, 25, 40, 33, 20], "gpu": [5, 5, 8, 12, 30, 28], "disk": { "used": 420000000000, "total": 494000000000 }, "containers": [] },
+          { "server": "b", "name": "home-server", "os": "linux", "at": 1767225599000, "memory": { "used": 3221225472, "total": 34359738368 }, "cpu": [3, 4, 2, 5, 3, 2], "gpu": [], "disk": { "used": 200000000000, "total": 2000000000000 }, "containers": [] },
+          { "server": "c", "name": "new-box", "problem": "Measuring…", "cpu": [], "gpu": [], "containers": [] }
+        ],
+        "power": []
+      }
+    },
+    "checks": { "Stale reading shows its age and new device says Measuring": [{ "expect": { "text": "12 s ago" } }, { "expect": { "text": "Measuring…" } }] }
   }
 }

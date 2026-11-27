@@ -11,8 +11,11 @@ defmodule ServerLoad do
     properties: %{used: %{type: "integer", description: "In bytes"}, total: %{type: "integer", description: "In bytes"}},
     required: ["used", "total"]
   }
-  # Each device's power as it last said, and since when it has been so.
-  @schema ["create table power (device text primary key, name text, charging integer not null, since integer not null)"]
+  # Each device's power as it last said, and since when it has been so; and each metered device's last reading.
+  @schema [
+    "create table power (device text primary key, name text, charging integer not null, since integer not null)",
+    "create table readings (server text primary key, at integer not null, reading text not null)"
+  ]
 
   @busy %{type: "array", items: %{type: "integer"}, description: "Percent busy every 5 seconds over the last two minutes, oldest first"}
 
@@ -20,7 +23,7 @@ defmodule ServerLoad do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def requires, do: %{"core" => ">= 0.34.593", "database" => "to keep whether each device is on its charger"}
+  def requires, do: %{"core" => ">= 0.37.182", "database" => "to keep each device's last reading and whether it's on its charger"}
 
   @impl true
   def entrypoints, do: [%{page: "client/index.html", runtime_version: 5}]
@@ -34,10 +37,11 @@ defmodule ServerLoad do
       %{
         name: "now",
         read_only: true,
+        max_age: 5,
         ui: "client/index.html",
         runtime_version: 5,
         description:
-          "Every device that's measured, on or not, and how busy each is now: its memory, CPU, GPU and disk space, and the containers it hosts; and whether each device that says so, as a phone does, is on its charger, and since when. Use it to pick a device or server with room for a desktop, a model or a build, or to know whether someone's phone is charging.",
+          "Every device that's measured, on or not, and how busy each is now: its memory, CPU, GPU and disk space, and the containers it hosts; and whether each device that says so, as a phone does, is on its charger, and since when. Answers at once with each device's last reading and refreshes stale meters in the background. Use it to pick a device or server with room for a desktop, a model or a build, or to know whether someone's phone is charging.",
         inputs: %{
           type: "object",
           properties: %{
@@ -54,6 +58,7 @@ defmodule ServerLoad do
                 properties: %{
                   server: %{type: "string", description: "Its server key"},
                   name: %{type: ["string", "null"]},
+                  at: %{type: "integer", description: "When this reading was taken, in milliseconds since 1970"},
                   problem: %{type: "string", description: "Why it isn't measured now: off, its meter isn't running on it, or its meter failed"},
                   seen: %{type: "integer", description: "When one that's off was last seen, in milliseconds since 1970"},
                   os: %{type: "string", description: "linux, macos or windows"},
@@ -100,6 +105,7 @@ defmodule ServerLoad do
       },
       %{
         name: "power",
+        changes: ["now"],
         description:
           "Says whether the device calling is on its charger, as the One App on an iPhone does when a Shortcuts automation runs its On Charger as it's plugged in or unplugged.",
         inputs: %{
@@ -115,6 +121,7 @@ defmodule ServerLoad do
       %{
         name: "widget",
         read_only: true,
+        max_age: 60,
         description: "Device Activity's widget, as a layout: how busy each device is, at a glance",
         inputs: %{type: "object", properties: %{size: %{type: "string", enum: ["2x2", "4x2", "4x4"]}}},
         outputs: %{type: "object", properties: %{part: %{type: "string"}}, required: ["part"]}
@@ -185,7 +192,7 @@ defmodule ServerLoad do
       end
 
     unmeasured = for server <- unmetered_on, do: %{"server" => server, "name" => OneCore.Service.name(server), "problem" => unmeasured()}
-    devices = measure(call, metered_on) ++ unmeasured ++ off
+    devices = cached_or_refresh(call, metered_on) ++ unmeasured ++ off
     Enum.sort_by(without_devices(devices), &String.downcase(&1["name"] || ""))
   end
 
@@ -203,23 +210,157 @@ defmodule ServerLoad do
   end
 
   # How long a machine has to answer, in milliseconds: a meter that doesn't answer in 3 s says so itself
-  # (`ServerLoad.Meter`), and a machine that doesn't answer at all isn't waited on for much longer, where the widget,
-  # which every open app asks for, waited out Asks' eight seconds on it.
+  # (`ServerLoad.Meter`), and a machine that doesn't answer at all isn't waited on for much longer.
   @answer 4_000
+  # A reading younger than this (ms) isn't refreshed again: the page asks every 5 s, so each poll refreshes once,
+  # while bursts from `changed` notices don't stampede meters.
+  @fresh 4_000
+  # Safety expiry (ms) for an in-flight refresh mark, in case a task is killed before its `after` runs.
+  @lock_ttl 10_000
 
-  # What each meter says now, all at once: a machine that's slow to answer holds up only its own part, where one after
-  # another each was waited for in turn, a slow one after a slow one. One that didn't answer says why.
-  defp measure(call, servers) do
-    {answered, failed} = OneCore.Asks.each(servers, &OneCore.Service.call(call, Meter, :now, [], &1), @answer)
+  # Answers at once with each device's last kept reading, and refreshes stale or missing meters in the background so
+  # each device updates as its own meter answers without waiting on the slowest one.
+  defp cached_or_refresh(_call, []), do: []
+
+  defp cached_or_refresh(call, servers) do
+    stored = read_readings(call)
+    now_ms = System.os_time(:millisecond)
+
+    stale =
+      Enum.filter(servers, fn server ->
+        case Map.get(stored, server) do
+          {at, _measured} -> now_ms - at >= @fresh
+          nil -> true
+        end
+      end)
+
+    if stale != [], do: refresh_async(call, stale, stored)
 
     for server <- servers do
-      measured =
-        case List.keyfind(answered, server, 0) do
-          {_server, measured} -> measured
-          nil -> %{"problem" => failed[server]}
+      base = %{"server" => server, "name" => OneCore.Service.name(server)}
+
+      case Map.get(stored, server) do
+        {at, measured} -> Map.merge(measured, Map.put(base, "at", at))
+        nil -> Map.put(base, "problem", "Measuring…")
+      end
+    end
+  end
+
+  defp read_readings(call) do
+    database = OneCore.Call.app(call, "database")
+
+    database.transaction(call, @schema, fn db ->
+      for %{"server" => server, "at" => at, "reading" => json} <- database.query(db, "select server, at, reading from readings", []),
+          into: %{} do
+        {server, {at, JSON.decode!(json)}}
+      end
+    end)
+  end
+
+  defp refresh_async(call, servers, stored) do
+    for server <- servers do
+      key = {call.subject, server}
+
+      if claim(key) do
+        had_prior = Map.has_key?(stored, server)
+
+        Task.start(fn ->
+          try do
+            measure_one(call, server, had_prior)
+          after
+            release(key)
+          end
+        end)
+      end
+    end
+  end
+
+  defp measure_one(call, server, had_prior) do
+    {answered, failed} = OneCore.Asks.each([server], &OneCore.Service.call(call, Meter, :now, [], &1), @answer)
+    at = System.os_time(:millisecond)
+    database = OneCore.Call.app(call, "database")
+
+    case List.keyfind(answered, server, 0) do
+      {_server, measured} ->
+        json = JSON.encode!(measured)
+
+        database.transaction(call, @schema, fn db ->
+          database.query(
+            db,
+            """
+            insert into readings (server, at, reading) values (?, ?, ?)
+            on conflict (server) do update set at = excluded.at, reading = excluded.reading
+            """,
+            [server, at, json]
+          )
+        end)
+
+        OneCore.Call.changed(call)
+
+      nil ->
+        # Keep a prior good reading (with its age) if the meter fails transiently; record the problem only if none exists yet.
+        if not had_prior do
+          json = JSON.encode!(%{"problem" => failed[server]})
+
+          database.transaction(call, @schema, fn db ->
+            database.query(
+              db,
+              "insert into readings (server, at, reading) values (?, ?, ?) on conflict (server) do nothing",
+              [server, at, json]
+            )
+          end)
+
+          OneCore.Call.changed(call)
+        end
+    end
+  end
+
+  # In-flight refresh marks, held in a named ETS table owned by a tiny idle process so it outlives request processes.
+  defp claim(key) do
+    table = ensure_table()
+    now = System.monotonic_time(:millisecond)
+
+    case :ets.lookup(table, key) do
+      [{^key, started}] when now - started < @lock_ttl ->
+        false
+
+      _ ->
+        :ets.insert(table, {key, now})
+        true
+    end
+  end
+
+  defp release(key) do
+    if :ets.whereis(:server_load_refreshing) != :undefined, do: :ets.delete(:server_load_refreshing, key)
+    :ok
+  end
+
+  defp ensure_table do
+    case :ets.whereis(:server_load_refreshing) do
+      :undefined ->
+        parent = self()
+
+        spawn(fn ->
+          created =
+            try do
+              :ets.new(:server_load_refreshing, [:named_table, :public, :set])
+              true
+            rescue
+              ArgumentError -> false
+            end
+
+          send(parent, :ready)
+          if created, do: receive(do: (:stop -> :ok))
+        end)
+
+        receive do
+          :ready -> :server_load_refreshing
+        after
+          1_000 -> :server_load_refreshing
         end
 
-      Map.merge(measured, %{"server" => server, "name" => OneCore.Service.name(server)})
+      _ref ->
+        :server_load_refreshing
     end
   end
 end
