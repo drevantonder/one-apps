@@ -185,7 +185,7 @@ defmodule ServerLoad do
       end
 
     unmeasured = for server <- unmetered_on, do: %{"server" => server, "name" => OneCore.Service.name(server), "problem" => unmeasured()}
-    devices = Enum.map(metered_on, &measure(call, &1)) ++ unmeasured ++ off
+    devices = measure(call, metered_on) ++ unmeasured ++ off
     Enum.sort_by(without_devices(devices), &String.downcase(&1["name"] || ""))
   end
 
@@ -202,14 +202,19 @@ defmodule ServerLoad do
     end
   end
 
-  defp measure(call, server) do
-    measured =
-      try do
-        OneCore.Service.call(call, Meter, :now, [], server)
-      rescue
-        problem -> %{"problem" => Exception.message(problem)}
-      end
+  # What each meter says now, all at once: a machine that's slow to answer holds up only its own part, where one after
+  # another each was waited for in turn, a slow one after a slow one. One that didn't answer says why.
+  defp measure(call, servers) do
+    {answered, failed} = OneCore.Asks.each(servers, &OneCore.Service.call(call, Meter, :now, [], &1))
 
-    Map.merge(measured, %{"server" => server, "name" => OneCore.Service.name(server)})
+    for server <- servers do
+      measured =
+        case List.keyfind(answered, server, 0) do
+          {_server, measured} -> measured
+          nil -> %{"problem" => failed[server]}
+        end
+
+      Map.merge(measured, %{"server" => server, "name" => OneCore.Service.name(server)})
+    end
   end
 end
