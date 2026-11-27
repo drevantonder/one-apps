@@ -202,10 +202,15 @@ defmodule ServerLoad do
     end
   end
 
+  # How long a machine has to answer, in milliseconds: a meter that doesn't answer in 3 s says so itself
+  # (`ServerLoad.Meter`), and a machine that doesn't answer at all isn't waited on for much longer, where the widget,
+  # which every open app asks for, waited out Asks' eight seconds on it.
+  @answer 4_000
+
   # What each meter says now, all at once: a machine that's slow to answer holds up only its own part, where one after
   # another each was waited for in turn, a slow one after a slow one. One that didn't answer says why.
   defp measure(call, servers) do
-    {answered, failed} = OneCore.Asks.each(servers, &OneCore.Service.call(call, Meter, :now, [], &1))
+    {answered, failed} = OneCore.Asks.each(servers, &OneCore.Service.call(call, Meter, :now, [], &1), @answer)
 
     for server <- servers do
       measured =
