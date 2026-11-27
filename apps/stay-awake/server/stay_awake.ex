@@ -28,14 +28,11 @@ defmodule StayAwake do
   def icon, do: "client/icon.svg"
 
   @impl true
-  def requires, do: %{"core" => ">= 0.34.593"}
-
-  @impl true
-  def hooks, do: ["settings.sections"]
+  def requires, do: %{"core" => ">= 0.37.184"}
 
   # Its switch is a group on the Mac's page in Settings, where its service runs.
   @impl true
-  def hook("settings.sections", _about, _call), do: [%{in: "device", component: "mac", service: true}]
+  def settings, do: [%{in: "device", component: "mac", service: true}]
 
   @impl true
   def widgets, do: [%{tool: "widget", sizes: ["2x2", "4x2"]}]
